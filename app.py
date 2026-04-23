@@ -6,6 +6,7 @@ Rate Calculator — Umbrella, Salaried, Ltd Co (coming soon).
 import streamlit as st
 from calculator import calculate as umbrella_calculate, UmbrellaAssumptions
 from salaried_calculator import calculate as salaried_calculate, SalariedAssumptions
+from ltd_co_calculator import calculate as ltd_co_calculate, LtdCoAssumptions
 
 st.set_page_config(
     page_title="Rate Calculator",
@@ -336,9 +337,178 @@ with tab2:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TAB 3 — LTD CO (COMING SOON)
+# TAB 3 — LTD CO
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab3:
-    st.subheader("Ltd Co Calculator")
-    st.caption("Outside IR35 — invoicing via your own limited company.")
-    st.info("Coming soon. This calculator is under development.")
+    st.subheader("Ltd Co Rate Calculator")
+    st.caption("Outside IR35 — invoicing via your own limited company. Salary + dividends extraction.")
+
+    # Input
+    col_input, col_gap = st.columns([1, 2])
+    with col_input:
+        l_day_rate = st.number_input(
+            "Day Rate (£/day)",
+            min_value=100, max_value=2_000, value=440, step=25,
+            help="The rate your Ltd Co invoices the client or agency.",
+            key="l_day_rate",
+        )
+
+    # Assumptions
+    with st.expander("Assumptions — click to edit"):
+        st.markdown("**Working pattern**")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            l_days_per_week = st.number_input("Days/week", value=5.0, step=0.5, key="l_dpw")
+        with c2:
+            l_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="l_wpy")
+        with c3:
+            l_hours_per_day = st.number_input("Hours/day", value=7.5, step=0.5, key="l_hpd")
+
+        st.markdown("**Director salary & tax**")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            l_director_salary = st.number_input(
+                "Director salary (£/yr)", value=12_570, step=100, key="l_salary",
+                help="Set at personal allowance by default — no income tax and minimal employer NI.",
+            )
+        with c2:
+            l_corp_tax = st.number_input(
+                "Corporation tax rate (%)", value=25.0, step=1.0, format="%.1f", key="l_corp_tax",
+                help="Main rate 25% on profits ≥ £250k. Small profits relief applies below £50k.",
+            ) / 100
+        with c3:
+            l_div_allowance = st.number_input(
+                "Dividend allowance (£/yr)", value=500, step=100, key="l_div_allowance",
+                help="First £500 of dividends tax-free (2024/25).",
+            )
+
+        st.markdown("**Business expenses**")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            l_pension = st.number_input(
+                "Employer pension (£/month)", value=500, step=50, key="l_pension",
+                help="Company pension contribution. Deducted before corporation tax.",
+            )
+        with c2:
+            l_life = st.number_input(
+                "Relevant Life insurance (£/month)", value=72, step=5, key="l_life",
+                help="Company-paid life insurance. Tax-efficient — premiums paid before profit.",
+            )
+        with c3:
+            l_ci = st.number_input(
+                "Critical illness / IP insurance (£/month)", value=50, step=5, key="l_ci",
+                help="Your contractor equivalent of employer sick pay. Deducted before corporation tax.",
+            )
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            l_accountancy = st.number_input(
+                "Accountancy (£/yr)", value=1_800, step=100, key="l_accountancy",
+            )
+        with c2:
+            l_other = st.number_input(
+                "Other business expenses (£/yr)", value=1_000, step=100, key="l_other",
+                help="Phone, software, insurance, home office etc.",
+            )
+
+    # Calculate
+    la = LtdCoAssumptions(
+        days_per_week=l_days_per_week,
+        weeks_per_year=l_weeks_per_year,
+        hours_per_day=l_hours_per_day,
+        director_salary=l_director_salary,
+        corporation_tax_rate=l_corp_tax,
+        dividend_allowance=l_div_allowance,
+        employer_pension_per_month=l_pension,
+        relevant_life_insurance_per_month=l_life,
+        critical_illness_per_month=l_ci,
+        accountancy_per_year=l_accountancy,
+        other_expenses_per_year=l_other,
+    )
+    lr = ltd_co_calculate(l_day_rate, la)
+
+    # Net take-home
+    st.markdown("---")
+    st.subheader("Net Take-Home")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Annual", f"£{lr.annual_net:,.0f}")
+    m2.metric("Monthly", f"£{lr.monthly_net:,.0f}")
+    m3.metric("Daily equivalent", f"£{lr.daily_net:,.2f}")
+    m4.metric("Effective tax rate", f"{lr.effective_tax_rate:.1%}")
+
+    # Full breakdown
+    with st.expander("Full Breakdown"):
+        left, right = st.columns(2)
+
+        with left:
+            st.markdown("**Step 1 — Company-level deductions**")
+            for label, value, is_deduction in [
+                ("Gross contract income", lr.annual_gross_contract_income, False),
+                ("Less: Director salary", -lr.director_salary, True),
+                ("Less: Employer NI on salary", -lr.employer_ni_on_salary, True),
+                ("Less: Employer pension", -lr.employer_pension_annual, True),
+                ("Less: Relevant Life insurance", -lr.relevant_life_insurance_annual, True),
+                ("Less: Critical illness / IP insurance", -lr.critical_illness_annual, True),
+                ("Less: Accountancy fees", -lr.accountancy_annual, True),
+                ("Less: Other business expenses", -lr.other_expenses_annual, True),
+                ("= Taxable profit", lr.taxable_profit, False),
+                ("Less: Corporation tax", -lr.corporation_tax, True),
+                ("= Distributable profit", lr.distributable_profit, False),
+            ]:
+                ca, cb = st.columns([3, 1])
+                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
+                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+
+        with right:
+            st.markdown("**Step 2 — Personal income**")
+            for label, value, is_deduction in [
+                ("Director salary received", lr.director_salary, False),
+                ("Dividends drawn", lr.dividends_drawn, False),
+                ("Total personal income", lr.total_personal_income, False),
+            ]:
+                ca, cb = st.columns([3, 1])
+                style = "font-weight: bold;" if "Total" in label else ""
+                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+
+            st.markdown("")
+            st.markdown("**Step 3 — Personal tax on dividends**")
+            for label, value, is_deduction in [
+                ("Dividend allowance — tax free", lr.dividend_allowance_tax_free, False),
+                ("Dividends within basic rate band", lr.dividends_basic_rate_band, False),
+                ("Dividends above basic rate band", lr.dividends_higher_rate_band, False),
+                ("Less: Dividend tax", -lr.dividend_tax, True),
+                ("Net dividends after personal tax", lr.net_dividends_after_tax, False),
+                ("= Net take-home (annual)", lr.annual_net, False),
+            ]:
+                ca, cb = st.columns([3, 1])
+                style = "color: #cc0000;" if is_deduction else ("font-weight: bold;" if "take-home" in label else "")
+                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+
+    # Tax summary
+    st.markdown("---")
+    st.subheader("Tax & Deductions Summary")
+    s1, s2, s3, s4, s5 = st.columns(5)
+    s1.metric("Corporation tax", f"£{lr.corporation_tax_paid:,.0f}")
+    s2.metric("Dividend tax", f"£{lr.dividend_tax_paid:,.0f}")
+    s3.metric("Employer NI", f"£{lr.employer_ni_paid:,.0f}")
+    s4.metric("Pension (company)", f"£{lr.total_pension:,.0f}")
+    s5.metric("Critical illness (after-tax cost)", f"£{lr.critical_illness_after_tax_cost:,.0f}")
+
+    # Contractor protection
+    with st.expander("Contractor Protection & Context"):
+        for label, value in [
+            ("Critical illness / IP insurance (gross)", lr.critical_illness_annual),
+            ("After-tax cost to company", lr.critical_illness_after_tax_cost),
+            ("Gross contract income", lr.annual_gross_contract_income),
+            ("Total pension (employer contribution)", lr.total_pension),
+        ]:
+            ca, cb = st.columns([3, 1])
+            bold = "font-weight: bold;" if "Total" in label or "Gross contract" in label else ""
+            ca.markdown(f"<span style='{bold}'>{label}</span>", unsafe_allow_html=True)
+            cb.markdown(f"<span style='{bold}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.caption("Figures are indicative only. Tax rates based on 2024/25 HMRC published rates. Not financial advice.")
