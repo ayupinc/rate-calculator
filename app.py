@@ -42,7 +42,7 @@ with st.expander("Assumptions — click to edit"):
     with c1:
         umbrella_margin = st.number_input("Umbrella margin (£/week)", value=25, step=5)
     with c2:
-        include_levy = st.checkbox("Apprenticeship Levy charged?", value=True)
+        include_levy = st.checkbox("Apprenticeship Levy charged?", value=True, help="Does the Umbrella company include an apprenticeship levy?")
 
     st.markdown("**Pension**")
     c1, c2, c3 = st.columns(3)
