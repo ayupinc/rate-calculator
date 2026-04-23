@@ -38,7 +38,7 @@ with st.expander("Assumptions — click to edit"):
         hours_per_day = st.number_input("Hours/day", value=7.5, step=0.5)
 
     st.markdown("**Umbrella costs**")
-    c1, c2 = st.columns(2)
+    c1, c2 = st.columns(3)
     with c1:
         umbrella_margin = st.number_input("Umbrella margin (£/week)", value=25, step=5)
     with c2:
