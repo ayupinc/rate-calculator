@@ -17,13 +17,13 @@ st.set_page_config(
 st.title("🧮 Rate Calculator")
 st.caption("2024/25 tax year — UK contracting & employment")
 
-tab1, tab2, tab3 = st.tabs(["Umbrella (Inside IR35)", "Full-Time Salaried", "Ltd Co (Outside IR35)"])
+tab_ltd, tab_umbrella, tab_salaried = st.tabs(["Ltd Co (Outside IR35)", "Umbrella (Inside IR35)", "Full-Time Salaried"])
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB 1 — UMBRELLA
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab1:
+with tab_umbrella:
     st.subheader("Umbrella Rate Calculator")
     st.caption("Agency day rate processed via an umbrella company — Inside IR35.")
 
@@ -44,16 +44,18 @@ with tab1:
         with c1:
             u_days_per_week = st.number_input("Days/week", value=5.0, step=0.5, key="u_dpw")
         with c2:
-            u_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="u_wpy")
+            u_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="u_wpy", help="Assume 11 days bank holiday and 19 further days off (annual leave).")
         with c3:
             u_hours_per_day = st.number_input("Hours/day", value=7.5, step=0.5, key="u_hpd")
 
         st.markdown("**Umbrella costs**")
         c1, c2, c3 = st.columns(3)
         with c1:
-            u_margin = st.number_input("Umbrella margin (£/week)", value=25, step=5, key="u_margin")
+            u_margin_annual = st.number_input("Umbrella margin (£/yr)", value=1_150, step=50, key="u_margin",
+                help="Annual umbrella fee. Typical £15–£30/week — default is £25 × 46 weeks.")
         with c2:
-            u_levy = st.checkbox("Apprenticeship Levy charged?", value=True, key="u_levy")
+            u_levy_rate = st.number_input("Apprenticeship Levy rate (%)", value=0.5, step=0.1, format="%.1f", key="u_levy",
+                help="0.5% of payroll. Most umbrellas pass this through. Set to 0 if not charged.") / 100
 
         st.markdown("**Pension**")
         c1, c2, c3 = st.columns(3)
@@ -77,8 +79,8 @@ with tab1:
         days_per_week=u_days_per_week,
         weeks_per_year=u_weeks_per_year,
         hours_per_day=u_hours_per_day,
-        umbrella_margin_per_week=u_margin,
-        apprenticeship_levy_rate=0.005 if u_levy else 0.0,
+        umbrella_margin_per_week=u_margin_annual / u_weeks_per_year,
+        apprenticeship_levy_rate=u_levy_rate,
         pension_scheme_type=u_pension_type,
         employee_pension_rate=u_ee_pension,
         employer_pension_rate=u_er_pension,
@@ -178,7 +180,7 @@ with tab1:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB 2 — SALARIED
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab2:
+with tab_salaried:
     st.subheader("Full-Time Salaried Calculator")
     st.caption("Direct employment — PAYE. Income tax and NI deducted at source.")
 
@@ -199,7 +201,7 @@ with tab2:
         with c1:
             s_days_per_week = st.number_input("Days/week", value=5.0, step=0.5, key="s_dpw")
         with c2:
-            s_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="s_wpy")
+            s_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="s_wpy", help="Assume 11 days bank holiday and 19 further days off (annual leave).")
         with c3:
             s_hours_per_day = st.number_input("Hours/day", value=7.5, step=0.5, key="s_hpd")
 
@@ -339,7 +341,7 @@ with tab2:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB 3 — LTD CO
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab3:
+with tab_ltd:
     st.subheader("Ltd Co Rate Calculator")
     st.caption("Outside IR35 — invoicing via your own limited company. Salary + dividends extraction.")
 
@@ -349,7 +351,7 @@ with tab3:
         l_day_rate = st.number_input(
             "Day Rate (£/day)",
             min_value=100, max_value=2_000, value=440, step=25,
-            help="The rate your Ltd Co invoices the client or agency.",
+            help="The rate your Ltd Co invoices / receives from the client or agency.",
             key="l_day_rate",
         )
 
@@ -360,7 +362,7 @@ with tab3:
         with c1:
             l_days_per_week = st.number_input("Days/week", value=5.0, step=0.5, key="l_dpw")
         with c2:
-            l_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="l_wpy")
+            l_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="l_wpy", help="Assume 11 days bank holiday and 19 further days off (annual leave).")
         with c3:
             l_hours_per_day = st.number_input("Hours/day", value=7.5, step=0.5, key="l_hpd")
 
@@ -385,18 +387,18 @@ with tab3:
         st.markdown("**Business expenses**")
         c1, c2, c3 = st.columns(3)
         with c1:
-            l_pension = st.number_input(
-                "Employer pension (£/month)", value=500, step=50, key="l_pension",
-                help="Company pension contribution. Deducted before corporation tax.",
+            l_pi = st.number_input(
+                "Professional indemnity insurance (£/yr)", value=1_200, step=100, key="l_pi",
+                help="PI insurance is a standard contractor cost. Deducted before corporation tax.",
             )
         with c2:
             l_life = st.number_input(
-                "Relevant Life insurance (£/month)", value=72, step=5, key="l_life",
+                "Relevant Life insurance (£/yr)", value=864, step=50, key="l_life",
                 help="Company-paid life insurance. Tax-efficient — premiums paid before profit.",
             )
         with c3:
             l_ci = st.number_input(
-                "Critical illness / IP insurance (£/month)", value=50, step=5, key="l_ci",
+                "Critical illness / IP insurance (£/yr)", value=600, step=50, key="l_ci",
                 help="Your contractor equivalent of employer sick pay. Deducted before corporation tax.",
             )
 
@@ -411,6 +413,14 @@ with tab3:
                 help="Phone, software, insurance, home office etc.",
             )
 
+        st.markdown("**Pension**")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            l_pension = st.number_input(
+                "Employer pension (£/yr)", value=6_000, step=100, key="l_pension",
+                help="Company pension contribution. Deducted before corporation tax.",
+            )
+
     # Calculate
     la = LtdCoAssumptions(
         days_per_week=l_days_per_week,
@@ -419,9 +429,10 @@ with tab3:
         director_salary=l_director_salary,
         corporation_tax_rate=l_corp_tax,
         dividend_allowance=l_div_allowance,
-        employer_pension_per_month=l_pension,
-        relevant_life_insurance_per_month=l_life,
-        critical_illness_per_month=l_ci,
+        professional_indemnity_per_year=l_pi,
+        employer_pension_per_month=l_pension / 12,
+        relevant_life_insurance_per_month=l_life / 12,
+        critical_illness_per_month=l_ci / 12,
         accountancy_per_year=l_accountancy,
         other_expenses_per_year=l_other,
     )
@@ -446,11 +457,12 @@ with tab3:
                 ("Gross contract income", lr.annual_gross_contract_income, False),
                 ("Less: Director salary", -lr.director_salary, True),
                 ("Less: Employer NI on salary", -lr.employer_ni_on_salary, True),
-                ("Less: Employer pension", -lr.employer_pension_annual, True),
+                ("Less: Professional indemnity insurance", -lr.professional_indemnity_annual, True),
                 ("Less: Relevant Life insurance", -lr.relevant_life_insurance_annual, True),
                 ("Less: Critical illness / IP insurance", -lr.critical_illness_annual, True),
                 ("Less: Accountancy fees", -lr.accountancy_annual, True),
                 ("Less: Other business expenses", -lr.other_expenses_annual, True),
+                ("Less: Employer pension", -lr.employer_pension_annual, True),
                 ("= Taxable profit", lr.taxable_profit, False),
                 ("Less: Corporation tax", -lr.corporation_tax, True),
                 ("= Distributable profit", lr.distributable_profit, False),

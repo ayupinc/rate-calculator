@@ -25,12 +25,15 @@ class LtdCoAssumptions:
     basic_rate_band_upper: float = 50_270
     personal_allowance: float = 12_570
 
-    # Business expenses (monthly unless noted)
-    employer_pension_per_month: float = 500
+    # Business expenses (annual)
+    professional_indemnity_per_year: float = 1_200
     relevant_life_insurance_per_month: float = 72
     critical_illness_per_month: float = 50
     accountancy_per_year: float = 1_800
     other_expenses_per_year: float = 1_000
+
+    # Pension (kept separate — company contribution)
+    employer_pension_per_month: float = 500
 
 
 @dataclass
@@ -48,6 +51,7 @@ class LtdCoResult:
     director_salary: float = 0
     employer_ni_on_salary: float = 0
     employer_pension_annual: float = 0
+    professional_indemnity_annual: float = 0
     relevant_life_insurance_annual: float = 0
     critical_illness_annual: float = 0
     accountancy_annual: float = 0
@@ -99,6 +103,7 @@ def calculate(day_rate: float, assumptions: LtdCoAssumptions = None) -> LtdCoRes
     r.director_salary = a.director_salary
     r.employer_ni_on_salary = max(0, a.director_salary - a.employer_ni_secondary_threshold) * a.employer_ni_rate
     r.employer_pension_annual = a.employer_pension_per_month * 12
+    r.professional_indemnity_annual = a.professional_indemnity_per_year
     r.relevant_life_insurance_annual = a.relevant_life_insurance_per_month * 12
     r.critical_illness_annual = a.critical_illness_per_month * 12
     r.accountancy_annual = a.accountancy_per_year
@@ -109,6 +114,7 @@ def calculate(day_rate: float, assumptions: LtdCoAssumptions = None) -> LtdCoRes
         - r.director_salary
         - r.employer_ni_on_salary
         - r.employer_pension_annual
+        - r.professional_indemnity_annual
         - r.relevant_life_insurance_annual
         - r.critical_illness_annual
         - r.accountancy_annual
