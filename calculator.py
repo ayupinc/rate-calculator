@@ -1,6 +1,9 @@
 """
 Umbrella Rate Calculator — core calculation module.
-Mirrors the logic in the 'Inside IR35 (Umbrella)' sheet of rate_calculator_v10.xlsx.
+Matches GOV.UK umbrella calculator logic:
+  - Employer pension deducted in Step 1 alongside employer NI and levy
+  - Employer NI and levy calculated on gross PAYE salary (solved algebraically)
+  - Employer pension based on qualifying earnings from gross PAYE salary
 All monetary values in GBP, annual unless noted.
 """
 
@@ -35,7 +38,7 @@ class UmbrellaAssumptions:
     apprenticeship_levy_rate: float = 0.005
 
     # Auto-enrolment pension
-    pension_scheme_type: str = "Net pay arrangement"   # or "Relief at source" or "Salary sacrifice"
+    pension_scheme_type: str = "Net pay arrangement"
     qualifying_earnings_lower: float = 6_240
     qualifying_earnings_upper: float = 50_270
     employer_pension_rate: float = 0.03
@@ -54,8 +57,9 @@ class UmbrellaResult:
     hours_per_year: float = 0
     annual_gross_contract_income: float = 0
 
-    # Step 1 — umbrella deductions
+    # Step 1 — umbrella deductions (all come off assignment rate)
     umbrella_margin_annual: float = 0
+    employer_pension_annual: float = 0
     employer_ni: float = 0
     apprenticeship_levy: float = 0
     gross_paye_salary: float = 0
@@ -93,7 +97,6 @@ class UmbrellaResult:
     hourly_net: float = 0
 
     # Cost to client
-    employer_pension_annual: float = 0
     total_cost_to_client: float = 0
     gross_salary_pct_of_client_cost: float = 0
 
@@ -115,26 +118,46 @@ def calculate(day_rate: float, assumptions: UmbrellaAssumptions = None) -> Umbre
     r.hours_per_year = r.days_per_year * a.hours_per_day
     r.annual_gross_contract_income = day_rate * r.days_per_year
 
-    # Step 1 — umbrella deductions
+    # Step 1 — solve for gross PAYE salary algebraically.
+    # gross = assignment - margin - employer_pension(gross) - employer_NI(gross) - levy(gross)
+    # Employer pension = employer_pension_rate * max(0, min(gross, QE_upper) - QE_lower)
+    # Employer NI = employer_ni_rate * max(0, gross - ni_threshold)
+    # Levy = levy_rate * gross
+    # For typical contractor rates gross > QE_upper, so pension base = QE_upper - QE_lower (fixed)
+    # This makes the equation linear and solvable directly.
+
     r.umbrella_margin_annual = a.umbrella_margin_per_week * a.weeks_per_year
-    gross_after_margin = r.annual_gross_contract_income - r.umbrella_margin_annual
-    r.employer_ni = max(0, gross_after_margin - a.employer_ni_secondary_threshold) * a.employer_ni_rate
-    r.apprenticeship_levy = gross_after_margin * a.apprenticeship_levy_rate
-    r.gross_paye_salary = (
-        r.annual_gross_contract_income
-        - r.umbrella_margin_annual
-        - r.employer_ni
-        - r.apprenticeship_levy
-    )
+    after_margin = r.annual_gross_contract_income - r.umbrella_margin_annual
 
-    # Qualifying earnings base for pension
+    # Estimate gross first assuming gross > QE_upper (true for most contractor rates)
+    qe_fixed = max(0, a.qualifying_earnings_upper - a.qualifying_earnings_lower)
+    employer_pension_fixed = qe_fixed * a.employer_pension_rate
+
+    # gross * (1 + levy_rate + employer_ni_rate) = after_margin - pension_fixed + ni_threshold * ni_rate
+    # gross = (after_margin - pension_fixed + ni_threshold * ni_rate) / (1 + levy_rate + ni_rate)
+    gross_est = (
+        after_margin - employer_pension_fixed + a.employer_ni_secondary_threshold * a.employer_ni_rate
+    ) / (1 + a.apprenticeship_levy_rate + a.employer_ni_rate)
+
+    # If gross_est < QE_upper, pension base is not fixed — solve iteratively (rare edge case)
+    if gross_est < a.qualifying_earnings_upper:
+        # pension = rate * (gross - QE_lower), substitute and solve
+        # gross * (1 + levy + ni_rate + pension_rate) = after_margin + ni_threshold * ni_rate + QE_lower * pension_rate
+        gross_est = (
+            after_margin
+            + a.employer_ni_secondary_threshold * a.employer_ni_rate
+            + a.qualifying_earnings_lower * a.employer_pension_rate
+        ) / (1 + a.apprenticeship_levy_rate + a.employer_ni_rate + a.employer_pension_rate)
+
+    r.gross_paye_salary = gross_est
+
+    # Now compute each deduction from gross
     r.qualifying_earnings_base = max(
-        0,
-        min(r.gross_paye_salary, a.qualifying_earnings_upper) - a.qualifying_earnings_lower
+        0, min(r.gross_paye_salary, a.qualifying_earnings_upper) - a.qualifying_earnings_lower
     )
-
-    # Employer pension (paid by umbrella on top of gross — does not reduce gross_paye_salary)
     r.employer_pension_annual = r.qualifying_earnings_base * a.employer_pension_rate
+    r.employer_ni = max(0, r.gross_paye_salary - a.employer_ni_secondary_threshold) * a.employer_ni_rate
+    r.apprenticeship_levy = r.gross_paye_salary * a.apprenticeship_levy_rate
 
     # Step 2 — pre-tax pension deduction
     if a.pension_scheme_type in ("Net pay arrangement", "Salary sacrifice"):
@@ -160,8 +183,9 @@ def calculate(day_rate: float, assumptions: UmbrellaAssumptions = None) -> Umbre
     r.total_income_tax = r.income_tax_basic + r.income_tax_higher + r.income_tax_additional
 
     # Step 3 — employee NI
-    ni_base = r.gross_taxable_pay  # pension already deducted if net pay / salary sacrifice
-    standard_ni_base = min(max(0, ni_base - a.ni_primary_threshold), a.ni_upper_earnings_limit - a.ni_primary_threshold)
+    ni_base = r.gross_taxable_pay
+    standard_ni_base = min(max(0, ni_base - a.ni_primary_threshold),
+                           a.ni_upper_earnings_limit - a.ni_primary_threshold)
     above_uel_base = max(0, ni_base - a.ni_upper_earnings_limit)
 
     r.employee_ni_standard = standard_ni_base * a.ni_rate_standard
@@ -171,7 +195,7 @@ def calculate(day_rate: float, assumptions: UmbrellaAssumptions = None) -> Umbre
     # Step 3b — post-tax deductions
     if a.pension_scheme_type == "Relief at source":
         r.employee_pension_posttax = r.qualifying_earnings_base * a.employee_pension_rate
-        r.hmrc_basic_rate_topup = r.employee_pension_posttax * (a.income_tax_basic / (1 - a.income_tax_basic))
+        r.hmrc_basic_rate_topup = r.employee_pension_posttax * a.income_tax_basic
     else:
         r.employee_pension_posttax = 0
         r.hmrc_basic_rate_topup = 0
@@ -192,13 +216,14 @@ def calculate(day_rate: float, assumptions: UmbrellaAssumptions = None) -> Umbre
     )
 
     # Net take-home
-    r.annual_net = r.gross_taxable_pay - r.total_income_tax - r.total_employee_ni - r.employee_pension_posttax
+    r.annual_net = (r.gross_taxable_pay - r.total_income_tax
+                   - r.total_employee_ni - r.employee_pension_posttax)
     r.monthly_net = r.annual_net / 12
     r.daily_net = r.annual_net / r.days_per_year
     r.hourly_net = r.annual_net / r.hours_per_year
 
-    # Cost to client
-    r.total_cost_to_client = r.annual_gross_contract_income + r.employer_pension_annual
+    # Cost to client — assignment rate only (pension already deducted from it)
+    r.total_cost_to_client = r.annual_gross_contract_income
     r.gross_salary_pct_of_client_cost = r.gross_paye_salary / r.total_cost_to_client
 
     # Effective rates & summary

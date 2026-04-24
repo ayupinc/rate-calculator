@@ -87,13 +87,26 @@ with tab_ltd:
     st.subheader("Ltd Co Rate Calculator")
     st.caption("Outside IR35 — invoicing via your own limited company or through agency (amount is post agency deduction). Salary + dividends extraction.")
 
-    col_input, col_gap = st.columns([1, 2])
+    col_rtype, col_input, col_gap = st.columns([1, 1, 1])
+    with col_rtype:
+        l_rate_period = st.selectbox(
+            "Rate quoted as",
+            ["Per Day", "Per Week", "Per Month", "Per Year"],
+            index=0, key="l_rate_period",
+            help="Select how your rate is quoted. Converted to a daily rate before calculating.",
+        )
     with col_input:
-        l_day_rate = st.number_input(
-            "Day Rate (£/day)",
-            min_value=100.0, max_value=2_000.0, value=440.0, step=0.50, format="%.2f",
+        l_rate_labels = {"Per Day": "Day Rate (£/day)", "Per Week": "Weekly Rate (£/week)",
+                         "Per Month": "Monthly Rate (£/month)", "Per Year": "Annual Rate (£/year)"}
+        l_rate_defaults = {"Per Day": 440.0, "Per Week": 2200.0,
+                           "Per Month": 9533.0, "Per Year": 114400.0}
+        l_rate_input = st.number_input(
+            l_rate_labels[l_rate_period],
+            min_value=1.0, max_value=500_000.0,
+            value=l_rate_defaults[l_rate_period],
+            step=0.50, format="%.2f",
             help="The rate your Ltd Co invoices / receives from the client or agency.",
-            key="l_day_rate",
+            key="l_rate_input",
         )
 
     with st.expander("Assumptions — click to edit"):
@@ -179,6 +192,16 @@ with tab_ltd:
                 "Employer pension (£/yr)", value=6_000, step=100, key="l_pension",
                 help="Company pension contribution. Deducted before corporation tax.",
             )
+
+    # Convert input rate to daily
+    if l_rate_period == "Per Day":
+        l_day_rate = l_rate_input
+    elif l_rate_period == "Per Week":
+        l_day_rate = l_rate_input / l_days_per_week
+    elif l_rate_period == "Per Month":
+        l_day_rate = l_rate_input / (l_weeks_per_year * l_days_per_week / 12)
+    else:  # Per Year
+        l_day_rate = l_rate_input / (l_weeks_per_year * l_days_per_week)
 
     la = LtdCoAssumptions(
         days_per_week=l_days_per_week,
@@ -292,13 +315,26 @@ with tab_umbrella:
     st.subheader("Umbrella Rate Calculator")
     st.caption("Agency day rate processed via an umbrella company — Inside IR35.")
 
-    col_input, col_gap = st.columns([1, 2])
+    col_rtype, col_input, col_gap = st.columns([1, 1, 1])
+    with col_rtype:
+        u_rate_period = st.selectbox(
+            "Rate quoted as",
+            ["Per Day", "Per Week", "Per Month", "Per Year"],
+            index=0, key="u_rate_period",
+            help="Select how your rate is quoted. Converted to a daily rate before calculating.",
+        )
     with col_input:
-        u_day_rate = st.number_input(
-            "Day Rate (£/day)",
-            min_value=100.0, max_value=2_000.0, value=550.0, step=0.50, format="%.2f",
+        u_rate_labels = {"Per Day": "Day Rate (£/day)", "Per Week": "Weekly Rate (£/week)",
+                         "Per Month": "Monthly Rate (£/month)", "Per Year": "Annual Rate (£/year)"}
+        u_rate_defaults = {"Per Day": 550.0, "Per Week": 2750.0,
+                           "Per Month": 11917.0, "Per Year": 143000.0}
+        u_rate_input = st.number_input(
+            u_rate_labels[u_rate_period],
+            min_value=1.0, max_value=500_000.0,
+            value=u_rate_defaults[u_rate_period],
+            step=0.50, format="%.2f",
             help="The rate you invoice via the agency / umbrella.",
-            key="u_day_rate",
+            key="u_rate_input",
         )
 
     with st.expander("Assumptions — click to edit"):
@@ -308,7 +344,7 @@ with tab_umbrella:
             u_days_per_week = st.number_input("Days/week", value=5.0, step=0.5, key="u_dpw")
         with c2:
             u_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="u_wpy",
-                help="Assume 11 days bank holiday and 19 further days off (annual leave).")
+                help="Working weeks per year. With rolled-up holiday pay, set to weeks you actually bill (e.g. 46). With accrued holiday, set to all contracted weeks including leave.")
         with c3:
             u_hours_per_day = st.number_input("Hours/day", value=7.5, step=0.5, key="u_hpd")
 
@@ -321,6 +357,21 @@ with tab_umbrella:
             u_levy_rate = st.number_input("Apprenticeship Levy rate (%)", value=0.5, step=0.1,
                 format="%.1f", key="u_levy",
                 help="0.5% of payroll. Most umbrellas pass this through. Set to 0 if not charged.") / 100
+
+        st.markdown("**Holiday pay**")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            u_holiday_model = st.selectbox(
+                "Holiday pay model",
+                ["Rolled-up (included in rate)", "Accrued separately"],
+                index=0, key="u_holiday_model",
+                help="Rolled-up: holiday pay is built into your day rate and paid across all working weeks — you are paid it whether you take leave or not, but receive no additional pay when you do. Accrued: the umbrella holds back ~12.07% and pays it when you take leave.",
+            )
+        with c2:
+            u_holiday_rate = st.number_input(
+                "Holiday pay rate (%)", value=12.07, step=0.01, format="%.2f", key="u_holiday_rate",
+                help="Statutory minimum is 12.07% (28 days out of 232 working days). Your umbrella may use a different rate.",
+            ) / 100
 
         st.markdown("**Employer NI**")
         c1, c2, c3 = st.columns(3)
@@ -356,6 +407,23 @@ with tab_umbrella:
         u_ni_passback = False
         if u_pension_type == "Salary sacrifice":
             u_ni_passback = st.checkbox("Employer passes NI saving to pension?", value=False, key="u_ni_passback")
+
+    # Convert input rate to daily
+    if u_rate_period == "Per Day":
+        u_day_rate = u_rate_input
+    elif u_rate_period == "Per Week":
+        u_day_rate = u_rate_input / u_days_per_week
+    elif u_rate_period == "Per Month":
+        u_day_rate = u_rate_input / (u_weeks_per_year * u_days_per_week / 12)
+    else:  # Per Year
+        u_day_rate = u_rate_input / (u_weeks_per_year * u_days_per_week)
+
+    # Holiday pay calculation
+    u_holiday_pay_annual = 0.0
+    if u_holiday_model == "Rolled-up (included in rate)":
+        u_holiday_pay_annual = (u_day_rate * u_days_per_week * u_weeks_per_year) * u_holiday_rate
+    else:
+        u_holiday_pay_annual = (u_day_rate * u_days_per_week * u_weeks_per_year) * u_holiday_rate
 
     ua = UmbrellaAssumptions(
         days_per_week=u_days_per_week,
@@ -402,6 +470,7 @@ with tab_umbrella:
             for label, value, is_deduction in [
                 ("Gross contract income", ur.annual_gross_contract_income, False),
                 ("Less: Umbrella margin", -ur.umbrella_margin_annual, True),
+                ("Less: Employer pension contribution", -ur.employer_pension_annual, True),
                 ("Less: Employer NI", -ur.employer_ni, True),
                 ("Less: Apprenticeship Levy", -ur.apprenticeship_levy, True),
                 ("= Gross PAYE salary", ur.gross_paye_salary, False),
@@ -418,6 +487,18 @@ with tab_umbrella:
                 f"£{u_gross_paye_weekly:,.2f}/week · "
                 f"£{u_gross_paye_monthly:,.2f}/month"
             )
+            # Holiday pay note
+            if u_holiday_model == "Rolled-up (included in rate)":
+                st.caption(
+                    f"ℹ️ Holiday pay (rolled-up): £{u_holiday_pay_annual:,.2f}/yr "
+                    f"({u_holiday_rate:.2%} of gross) — already included in your rate. "
+                    f"You receive no additional pay when taking leave."
+                )
+            else:
+                st.caption(
+                    f"ℹ️ Holiday pay (accrued): £{u_holiday_pay_annual:,.2f}/yr "
+                    f"({u_holiday_rate:.2%} of gross) — held by the umbrella and paid when you take leave."
+                )
 
             st.markdown("")
             st.markdown("**Step 2 — Pre-tax deductions**")
@@ -459,16 +540,16 @@ with tab_umbrella:
 
     with st.expander("Cost to Client"):
         for label, value in [
-            ("Gross contract fee", ur.annual_gross_contract_income),
+            ("Gross assignment rate (total cost to client)", ur.annual_gross_contract_income),
             ("  Of which: umbrella margin", ur.umbrella_margin_annual),
+            ("  Of which: employer pension", ur.employer_pension_annual),
             ("  Of which: employer NI", ur.employer_ni),
             ("  Of which: apprenticeship levy", ur.apprenticeship_levy),
-            ("  Of which: employer pension", ur.employer_pension_annual),
-            ("Total cost to client", ur.total_cost_to_client),
-            ("Your gross PAYE salary as % of client cost", None),
+            ("  Of which: your gross PAYE salary", ur.gross_paye_salary),
+            ("Your gross PAYE salary as % of assignment rate", None),
         ]:
             ca, cb = st.columns([3, 1])
-            bold = "font-weight: bold;" if "Total" in label or label == "Gross contract fee" else ""
+            bold = "font-weight: bold;" if "assignment rate" in label.lower() or "total" in label.lower() else ""
             ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
             if value is not None:
                 cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
