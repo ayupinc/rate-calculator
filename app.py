@@ -1,6 +1,6 @@
 """
 Rate Calculator — Ltd Co, Umbrella, Salaried.
-Tax year selector drives rates across all three tabs.
+Tax year selector and display period selector drive all three tabs.
 """
 
 import streamlit as st
@@ -17,8 +17,8 @@ st.set_page_config(
 
 st.title("🧮 Rate Calculator")
 
-# ── Tax year selector — global, above tabs ────────────────────────────────────
-col_yr, col_gap = st.columns([1, 2])
+# ── Global selectors — tax year and display period ────────────────────────────
+col_yr, col_period, col_gap = st.columns([1, 1, 1])
 with col_yr:
     selected_year = st.selectbox(
         "Tax year",
@@ -26,15 +26,55 @@ with col_yr:
         index=TAX_YEAR_OPTIONS.index(DEFAULT_TAX_YEAR),
         help="Rates and thresholds update across all three calculators when you change tax year.",
     )
+with col_period:
+    display_period = st.selectbox(
+        "Display figures",
+        ["Per Year", "Per Month", "Per Week"],
+        index=0,
+        help="Changes how output figures are shown. All calculations always run annually so that tax bands and thresholds are applied correctly.",
+    )
 
 ty = TAX_YEARS[selected_year]
 
+# ── Helper functions ──────────────────────────────────────────────────────────
 def ty_note(key):
     note = ty.get("notes", {}).get(key)
     if note:
         st.caption(f"ℹ️ {note}")
 
-st.caption(f"UK contracting & employment — {selected_year}")
+def fmt(value):
+    """Convert an annual figure to the selected display period."""
+    if display_period == "Per Year":
+        return f"£{value:,.2f}"
+    elif display_period == "Per Month":
+        return f"£{value / 12:,.2f}"
+    else:  # Per Week
+        return f"£{value / 52:,.2f}"
+
+def mfmt(value):
+    """Metric format — no pence for large figures."""
+    if display_period == "Per Year":
+        return f"£{value:,.0f}"
+    elif display_period == "Per Month":
+        return f"£{value / 12:,.0f}"
+    else:
+        return f"£{value / 52:,.2f}"
+
+def plabel(label):
+    """Update period references in labels."""
+    if display_period == "Per Year":
+        return label
+    elif display_period == "Per Month":
+        return label.replace("(annual)", "(monthly)").replace("annual", "monthly")
+    else:
+        return label.replace("(annual)", "(weekly)").replace("annual", "weekly")
+
+psuffix = {"Per Year": "/yr", "Per Month": "/mo", "Per Week": "/wk"}[display_period]
+
+st.caption(
+    f"UK contracting & employment — {selected_year} — "
+    f"figures shown {display_period.lower()}. All calculations run annually."
+)
 st.markdown("---")
 
 tab_ltd, tab_umbrella, tab_salaried = st.tabs(["Ltd Co (Outside IR35)", "Umbrella (Inside IR35)", "Full-Time Salaried"])
@@ -51,7 +91,7 @@ with tab_ltd:
     with col_input:
         l_day_rate = st.number_input(
             "Day Rate (£/day)",
-            min_value=100, max_value=2_000, value=440, step=25,
+            min_value=100.0, max_value=2_000.0, value=440.0, step=0.50, format="%.2f",
             help="The rate your Ltd Co invoices / receives from the client or agency.",
             key="l_day_rate",
         )
@@ -165,7 +205,7 @@ with tab_ltd:
     st.markdown("---")
     st.subheader("Net Take-Home")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Annual", f"£{lr.annual_net:,.0f}")
+    m1.metric(f"Net take-home ({psuffix})", mfmt(lr.annual_net))
     m2.metric("Monthly", f"£{lr.monthly_net:,.0f}")
     m3.metric("Daily equivalent", f"£{lr.daily_net:,.2f}")
     m4.metric("Effective tax rate", f"{lr.effective_tax_rate:.1%}")
@@ -190,8 +230,8 @@ with tab_ltd:
             ]:
                 ca, cb = st.columns([3, 1])
                 style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
         with right:
             st.markdown("**Step 2 — Personal income**")
@@ -202,8 +242,8 @@ with tab_ltd:
             ]:
                 ca, cb = st.columns([3, 1])
                 bold = "font-weight: bold;" if "Total" in label else ""
-                ca.markdown(f"<span style='{bold}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{bold}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
             st.markdown("")
             st.markdown("**Step 3 — Personal tax on dividends**")
@@ -217,17 +257,17 @@ with tab_ltd:
             ]:
                 ca, cb = st.columns([3, 1])
                 style = "color: #cc0000;" if is_deduction else ("font-weight: bold;" if "take-home" in label else "")
-                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("Tax & Deductions Summary")
     s1, s2, s3, s4, s5 = st.columns(5)
-    s1.metric("Corporation tax", f"£{lr.corporation_tax_paid:,.0f}")
-    s2.metric("Dividend tax", f"£{lr.dividend_tax_paid:,.0f}")
-    s3.metric("Employer NI", f"£{lr.employer_ni_paid:,.0f}")
-    s4.metric("Pension (company)", f"£{lr.total_pension:,.0f}")
-    s5.metric("Critical illness (after-tax cost)", f"£{lr.critical_illness_after_tax_cost:,.0f}")
+    s1.metric("Corporation tax", mfmt(lr.corporation_tax_paid))
+    s2.metric("Dividend tax", mfmt(lr.dividend_tax_paid))
+    s3.metric("Employer NI", mfmt(lr.employer_ni_paid))
+    s4.metric("Pension (company)", mfmt(lr.total_pension))
+    s5.metric("Critical illness (after-tax cost)", mfmt(lr.critical_illness_after_tax_cost))
 
     with st.expander("Contractor Protection & Context"):
         for label, value in [
@@ -238,8 +278,8 @@ with tab_ltd:
         ]:
             ca, cb = st.columns([3, 1])
             bold = "font-weight: bold;" if "Total" in label or "Gross contract" in label else ""
-            ca.markdown(f"<span style='{bold}'>{label}</span>", unsafe_allow_html=True)
-            cb.markdown(f"<span style='{bold}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+            ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
+            cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.caption("Figures are indicative only. Tax rates based on published HMRC rates. Not financial advice.")
@@ -256,7 +296,7 @@ with tab_umbrella:
     with col_input:
         u_day_rate = st.number_input(
             "Day Rate (£/day)",
-            min_value=100, max_value=2_000, value=550, step=25,
+            min_value=100.0, max_value=2_000.0, value=550.0, step=0.50, format="%.2f",
             help="The rate you invoice via the agency / umbrella.",
             key="u_day_rate",
         )
@@ -342,10 +382,15 @@ with tab_umbrella:
     )
     ur = umbrella_calculate(u_day_rate, ua)
 
+    # Derived rate equivalents for the gross PAYE salary breakdown note
+    u_gross_paye_daily = ur.gross_paye_salary / ur.days_per_year
+    u_gross_paye_weekly = ur.gross_paye_salary / 52
+    u_gross_paye_monthly = ur.gross_paye_salary / 12
+
     st.markdown("---")
     st.subheader("Net Take-Home")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Annual", f"£{ur.annual_net:,.0f}")
+    m1.metric(f"Net take-home ({psuffix})", mfmt(ur.annual_net))
     m2.metric("Monthly", f"£{ur.monthly_net:,.0f}")
     m3.metric("Daily equivalent", f"£{ur.daily_net:,.2f}")
     m4.metric("Effective tax rate", f"{ur.effective_tax_rate:.1%}")
@@ -363,8 +408,16 @@ with tab_umbrella:
             ]:
                 ca, cb = st.columns([3, 1])
                 style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+
+            # Gross PAYE salary rate breakdown note
+            st.caption(
+                f"ℹ️ Your gross PAYE salary equates to: "
+                f"£{u_gross_paye_daily:,.2f}/day · "
+                f"£{u_gross_paye_weekly:,.2f}/week · "
+                f"£{u_gross_paye_monthly:,.2f}/month"
+            )
 
             st.markdown("")
             st.markdown("**Step 2 — Pre-tax deductions**")
@@ -375,8 +428,8 @@ with tab_umbrella:
             ]:
                 ca, cb = st.columns([3, 1])
                 style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
         with right:
             st.markdown("**Step 3 — Income tax & NI**")
@@ -392,17 +445,17 @@ with tab_umbrella:
             ]:
                 ca, cb = st.columns([3, 1])
                 style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("Tax & Deductions Summary")
     s1, s2, s3, s4, s5 = st.columns(5)
-    s1.metric("Income tax", f"£{ur.income_tax_paid:,.0f}")
-    s2.metric("Employee NI", f"£{ur.employee_ni_paid:,.0f}")
-    s3.metric("Umbrella margin", f"£{ur.umbrella_margin_paid:,.0f}")
-    s4.metric("Your pension", f"£{ur.employee_pension_contribution:,.0f}")
-    s5.metric("Employer pension", f"£{ur.employer_pension_contribution:,.0f}")
+    s1.metric("Income tax", mfmt(ur.income_tax_paid))
+    s2.metric("Employee NI", mfmt(ur.employee_ni_paid))
+    s3.metric("Umbrella margin", mfmt(ur.umbrella_margin_paid))
+    s4.metric("Your pension", mfmt(ur.employee_pension_contribution))
+    s5.metric("Employer pension", mfmt(ur.employer_pension_contribution))
 
     with st.expander("Cost to Client"):
         for label, value in [
@@ -416,9 +469,9 @@ with tab_umbrella:
         ]:
             ca, cb = st.columns([3, 1])
             bold = "font-weight: bold;" if "Total" in label or label == "Gross contract fee" else ""
-            ca.markdown(f"<span style='{bold}'>{label}</span>", unsafe_allow_html=True)
+            ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
             if value is not None:
-                cb.markdown(f"<span style='{bold}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
             else:
                 cb.markdown(f"<span style='{bold}'>{ur.gross_salary_pct_of_client_cost:.1%}</span>", unsafe_allow_html=True)
 
@@ -525,7 +578,7 @@ with tab_salaried:
     st.markdown("---")
     st.subheader("Net Take-Home")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Annual", f"£{sr.annual_net:,.0f}")
+    m1.metric(f"Net take-home ({psuffix})", mfmt(sr.annual_net))
     m2.metric("Monthly", f"£{sr.monthly_net:,.0f}")
     m3.metric("Daily equivalent", f"£{sr.daily_net:,.2f}")
     m4.metric("Effective tax rate", f"{sr.effective_tax_rate:.1%}")
@@ -539,8 +592,8 @@ with tab_salaried:
                 ("Equivalent day rate", sr.equivalent_day_rate),
             ]:
                 ca, cb = st.columns([3, 1])
-                ca.markdown(f"<span style='font-weight: bold;'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='font-weight: bold;'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='font-weight: bold;'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='font-weight: bold;'>{fmt(value)}</span>", unsafe_allow_html=True)
 
             st.markdown("")
             st.markdown("**Step 2 — Pre-tax deductions**")
@@ -551,8 +604,8 @@ with tab_salaried:
             ]:
                 ca, cb = st.columns([3, 1])
                 style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
             st.markdown("")
             st.markdown("**Step 3 — Income tax & NI**")
@@ -568,8 +621,8 @@ with tab_salaried:
             ]:
                 ca, cb = st.columns([3, 1])
                 style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
         with right:
             st.markdown("**Pension memo**")
@@ -581,17 +634,17 @@ with tab_salaried:
             ]:
                 ca, cb = st.columns([3, 1])
                 bold = "font-weight: bold;" if "Total" in label else ""
-                ca.markdown(f"<span style='{bold}'>{label}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{bold}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+                ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("Tax & Deductions Summary")
     s1, s2, s3, s4, s5 = st.columns(5)
-    s1.metric("Income tax", f"£{sr.income_tax_paid:,.0f}")
-    s2.metric("Employee NI", f"£{sr.employee_ni_paid:,.0f}")
-    s3.metric("Your pension", f"£{sr.employee_pension_contribution:,.0f}")
-    s4.metric("Employer pension", f"£{sr.employer_pension_contribution:,.0f}")
-    s5.metric("Employer NI", f"£{sr.employer_ni:,.0f}")
+    s1.metric("Income tax", mfmt(sr.income_tax_paid))
+    s2.metric("Employee NI", mfmt(sr.employee_ni_paid))
+    s3.metric("Your pension", mfmt(sr.employee_pension_contribution))
+    s4.metric("Employer pension", mfmt(sr.employer_pension_contribution))
+    s5.metric("Employer NI", mfmt(sr.employer_ni))
 
     with st.expander("Cost to Employer"):
         for label, value in [
@@ -604,8 +657,11 @@ with tab_salaried:
         ]:
             ca, cb = st.columns([3, 1])
             bold = "font-weight: bold;" if "Total" in label or "Breakeven" in label or label == "Gross salary" else ""
-            ca.markdown(f"<span style='{bold}'>{label}</span>", unsafe_allow_html=True)
-            cb.markdown(f"<span style='{bold}'>£{value:,.2f}</span>", unsafe_allow_html=True)
+            ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
+            if "day rate" in label.lower():
+                cb.markdown(f"<span style='{bold}'>£{value:,.2f}/day</span>", unsafe_allow_html=True)
+            else:
+                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.caption("Figures are indicative only. Tax rates based on published HMRC rates. Not financial advice.")
