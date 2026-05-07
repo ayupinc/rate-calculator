@@ -237,7 +237,7 @@ with tab_ltd:
 
         def bd_row(label, value, note="", is_deduction=False, is_total=False):
             """Render a single three-column breakdown row."""
-            ca, cb, cc = st.columns([3, 1, 2])
+            ca, cb, cc = st.columns([3, 1, 3])
             if is_total:
                 style = "font-weight: bold;"
             elif is_deduction:
@@ -251,7 +251,7 @@ with tab_ltd:
 
         def bd_header(text):
             st.markdown(f"**{text}**")
-            ca, cb, cc = st.columns([3, 1, 2])
+            ca, cb, cc = st.columns([3, 1, 3])
             ca.markdown("<span style='color:#888;font-size:0.8em;'>Description</span>", unsafe_allow_html=True)
             cb.markdown("<span style='color:#888;font-size:0.8em;'>Amount</span>", unsafe_allow_html=True)
             cc.markdown("<span style='color:#888;font-size:0.8em;'>Note</span>", unsafe_allow_html=True)
@@ -478,58 +478,86 @@ with tab_umbrella:
     m4.metric("Effective tax rate", f"{ur.effective_tax_rate:.1%}")
 
     with st.expander("Full Breakdown"):
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**Step 1 — Umbrella deductions**")
-            for label, value, is_deduction in [
-                ("Gross contract income", ur.annual_gross_contract_income, False),
-                ("Less: Umbrella margin", -ur.umbrella_margin_annual, True),
-                ("Less: Employer pension contribution", -ur.employer_pension_annual, True),
-                ("Less: Employer NI", -ur.employer_ni, True),
-                ("Less: Apprenticeship Levy", -ur.apprenticeship_levy, True),
-                ("= Gross PAYE salary", ur.gross_paye_salary, False),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
-            # Gross PAYE salary rate breakdown note
-            st.caption(
-                f"ℹ️ Your gross PAYE salary equates to: "
-                f"£{u_gross_paye_daily:,.2f}/day · "
-                f"£{u_gross_paye_weekly:,.2f}/week · "
-                f"£{u_gross_paye_monthly:,.2f}/month"
-            )
+        def ubd_row(label, value, note="", is_deduction=False, is_total=False):
+            ca, cb, cc = st.columns([3, 1, 3])
+            if is_total:
+                style = "font-weight: bold;"
+            elif is_deduction:
+                style = "color: #cc0000;"
+            else:
+                style = ""
+            note_style = "color: #888888; font-size: 0.85em;"
+            ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
+            cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+            cc.markdown(f"<span style='{note_style}'>{note}</span>", unsafe_allow_html=True)
 
-            st.markdown("")
-            st.markdown("**Step 2 — Pre-tax deductions**")
-            for label, value, is_deduction in [
-                ("Gross PAYE salary", ur.gross_paye_salary, False),
-                ("Less: Employee pension (pre-tax)", -ur.employee_pension_pretax, True),
-                ("= Gross taxable pay", ur.gross_taxable_pay, False),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        def ubd_header(text):
+            st.markdown(f"**{text}**")
+            ca, cb, cc = st.columns([3, 1, 3])
+            ca.markdown("<span style='color:#888;font-size:0.8em;'>Description</span>", unsafe_allow_html=True)
+            cb.markdown("<span style='color:#888;font-size:0.8em;'>Amount</span>", unsafe_allow_html=True)
+            cc.markdown("<span style='color:#888;font-size:0.8em;'>Note</span>", unsafe_allow_html=True)
 
-        with right:
-            st.markdown("**Step 3 — Income tax & NI**")
-            for label, value, is_deduction in [
-                ("Gross taxable pay", ur.gross_taxable_pay, False),
-                ("Less: Income tax (basic rate)", -ur.income_tax_basic, True),
-                ("Less: Income tax (higher rate)", -ur.income_tax_higher, True),
-                ("Less: Income tax (additional rate)", -ur.income_tax_additional, True),
-                ("Less: Employee NI (standard)", -ur.employee_ni_standard, True),
-                ("Less: Employee NI (above UEL)", -ur.employee_ni_above_uel, True),
-                ("Less: Employee pension (post-tax)", -ur.employee_pension_posttax, True),
-                ("= Net take-home (annual)", ur.annual_net, False),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        # ── Step 1 — Umbrella deductions ─────────────────────────────────────
+        ubd_header("Step 1 — Umbrella deductions (from assignment rate)")
+        ubd_row("Gross contract income", ur.annual_gross_contract_income,
+            f"{ua.days_per_week} days × {ua.weeks_per_year} weeks × £{ur.day_rate:,.2f}/day",
+            is_total=True)
+        ubd_row("Less: Umbrella margin", -ur.umbrella_margin_annual,
+            f"£{ua.umbrella_margin_per_week:,.2f}/week × {ua.weeks_per_year} weeks",
+            is_deduction=True)
+        ubd_row("Less: Employer pension contribution", -ur.employer_pension_annual,
+            f"{ua.employer_pension_rate:.1%} of qualifying earnings (£{ur.qualifying_earnings_base:,.0f})",
+            is_deduction=True)
+        ubd_row("Less: Employer NI", -ur.employer_ni,
+            f"(Gross PAYE − £{ua.employer_ni_secondary_threshold:,.0f}) × {ua.employer_ni_rate:.1%} — solved algebraically",
+            is_deduction=True)
+        ubd_row("Less: Apprenticeship Levy", -ur.apprenticeship_levy,
+            f"Gross PAYE × {ua.apprenticeship_levy_rate:.1%}",
+            is_deduction=True)
+        ubd_row("= Gross PAYE salary", ur.gross_paye_salary,
+            f"£{u_gross_paye_daily:,.2f}/day · £{u_gross_paye_weekly:,.2f}/wk · £{u_gross_paye_monthly:,.2f}/mo",
+            is_total=True)
+
+        st.markdown("")
+
+        # ── Step 2 — Pre-tax deductions ───────────────────────────────────────
+        ubd_header("Step 2 — Pre-tax deductions")
+        ubd_row("Gross PAYE salary", ur.gross_paye_salary,
+            "Starting point for employee deductions")
+        ubd_row("Less: Employee pension (pre-tax)", -ur.employee_pension_pretax,
+            f"{ua.employee_pension_rate:.1%} of qualifying earnings — deducted before tax",
+            is_deduction=True)
+        ubd_row("= Gross taxable pay", ur.gross_taxable_pay,
+            "Income subject to income tax and NI", is_total=True)
+
+        st.markdown("")
+
+        # ── Step 3 — Income tax & NI ──────────────────────────────────────────
+        ubd_header("Step 3 — Income tax & employee NI")
+        ubd_row("Gross taxable pay", ur.gross_taxable_pay,
+            "Starting point for tax calculation")
+        ubd_row("Less: Income tax (basic rate)", -ur.income_tax_basic,
+            f"20% on earnings £{ua.personal_allowance:,.0f}–£{ua.basic_rate_ceiling:,.0f}",
+            is_deduction=True)
+        ubd_row("Less: Income tax (higher rate)", -ur.income_tax_higher,
+            f"40% on earnings £{ua.basic_rate_ceiling:,.0f}–£{ua.higher_rate_ceiling:,.0f}",
+            is_deduction=True)
+        ubd_row("Less: Income tax (additional rate)", -ur.income_tax_additional,
+            f"45% on earnings above £{ua.higher_rate_ceiling:,.0f}",
+            is_deduction=True)
+        ubd_row("Less: Employee NI (standard)", -ur.employee_ni_standard,
+            f"{ua.ni_rate_standard:.0%} on earnings £{ua.ni_primary_threshold:,.0f}–£{ua.ni_upper_earnings_limit:,.0f}",
+            is_deduction=True)
+        ubd_row("Less: Employee NI (above UEL)", -ur.employee_ni_above_uel,
+            f"{ua.ni_rate_above_uel:.0%} on earnings above £{ua.ni_upper_earnings_limit:,.0f}",
+            is_deduction=True)
+        ubd_row("Less: Employee pension (post-tax)", -ur.employee_pension_posttax,
+            "Relief at source only — deducted after tax" if ua.pension_scheme_type == "Relief at source" else "Not applicable for this scheme type",
+            is_deduction=True)
+        ubd_row("= Net take-home (annual)", ur.annual_net,
+            "Gross taxable pay minus all taxes and deductions", is_total=True)
 
     st.markdown("---")
     st.subheader("Tax & Deductions Summary")
@@ -667,58 +695,83 @@ with tab_salaried:
     m4.metric("Effective tax rate", f"{sr.effective_tax_rate:.1%}")
 
     with st.expander("Full Breakdown"):
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**Step 1 — Gross salary**")
-            for label, value in [
-                ("Gross annual salary", s_salary),
-                ("Equivalent day rate", sr.equivalent_day_rate),
-            ]:
-                ca, cb = st.columns([3, 1])
-                ca.markdown(f"<span style='font-weight: bold;'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='font-weight: bold;'>{fmt(value)}</span>", unsafe_allow_html=True)
 
-            st.markdown("")
-            st.markdown("**Step 2 — Pre-tax deductions**")
-            for label, value, is_deduction in [
-                ("Gross salary", s_salary, False),
-                ("Less: Employee pension (pre-tax)", -sr.employee_pension_pretax, True),
-                ("= Gross taxable pay", sr.gross_taxable_pay, False),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        def sbd_row(label, value, note="", is_deduction=False, is_total=False):
+            ca, cb, cc = st.columns([3, 1, 3])
+            if is_total:
+                style = "font-weight: bold;"
+            elif is_deduction:
+                style = "color: #cc0000;"
+            else:
+                style = ""
+            note_style = "color: #888888; font-size: 0.85em;"
+            ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
+            cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+            cc.markdown(f"<span style='{note_style}'>{note}</span>", unsafe_allow_html=True)
 
-            st.markdown("")
-            st.markdown("**Step 3 — Income tax & NI**")
-            for label, value, is_deduction in [
-                ("Gross taxable pay", sr.gross_taxable_pay, False),
-                ("Less: Income tax (basic rate)", -sr.income_tax_basic, True),
-                ("Less: Income tax (higher rate)", -sr.income_tax_higher, True),
-                ("Less: Income tax (additional rate)", -sr.income_tax_additional, True),
-                ("Less: Employee NI (standard)", -sr.employee_ni_standard, True),
-                ("Less: Employee NI (above UEL)", -sr.employee_ni_above_uel, True),
-                ("Less: Employee pension (post-tax)", -sr.employee_pension_posttax, True),
-                ("= Net take-home (annual)", sr.annual_net, False),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        def sbd_header(text):
+            st.markdown(f"**{text}**")
+            ca, cb, cc = st.columns([3, 1, 3])
+            ca.markdown("<span style='color:#888;font-size:0.8em;'>Description</span>", unsafe_allow_html=True)
+            cb.markdown("<span style='color:#888;font-size:0.8em;'>Amount</span>", unsafe_allow_html=True)
+            cc.markdown("<span style='color:#888;font-size:0.8em;'>Note</span>", unsafe_allow_html=True)
 
-        with right:
-            st.markdown("**Pension memo**")
-            for label, value in [
-                ("Your pension contribution", sr.employee_pension_contribution),
-                ("HMRC basic rate top-up", sr.hmrc_basic_rate_topup),
-                ("Employer NI saving to pension", sr.employer_ni_saving_to_pension),
-                ("Total pension pot funded", sr.total_pension_pot),
-            ]:
-                ca, cb = st.columns([3, 1])
-                bold = "font-weight: bold;" if "Total" in label else ""
-                ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        # ── Step 1 — Gross salary ─────────────────────────────────────────────
+        sbd_header("Step 1 — Gross salary")
+        sbd_row("Gross annual salary", s_salary,
+            "Contracted salary before any deductions", is_total=True)
+        sbd_row("Equivalent day rate", sr.equivalent_day_rate,
+            f"£{s_salary:,.0f} ÷ ({sa.days_per_week} days × {sa.weeks_per_year} weeks)")
+
+        st.markdown("")
+
+        # ── Step 2 — Pre-tax deductions ───────────────────────────────────────
+        sbd_header("Step 2 — Pre-tax deductions")
+        sbd_row("Gross salary", s_salary, "Starting point")
+        sbd_row("Less: Employee pension (pre-tax)", -sr.employee_pension_pretax,
+            f"{sa.employee_pension_rate:.1%} of qualifying earnings — deducted before tax",
+            is_deduction=True)
+        sbd_row("= Gross taxable pay", sr.gross_taxable_pay,
+            "Income subject to income tax and NI", is_total=True)
+
+        st.markdown("")
+
+        # ── Step 3 — Income tax & NI ──────────────────────────────────────────
+        sbd_header("Step 3 — Income tax & employee NI")
+        sbd_row("Gross taxable pay", sr.gross_taxable_pay, "Starting point for tax")
+        sbd_row("Less: Income tax (basic rate)", -sr.income_tax_basic,
+            f"20% on earnings £{sa.personal_allowance:,.0f}–£{sa.basic_rate_ceiling:,.0f}",
+            is_deduction=True)
+        sbd_row("Less: Income tax (higher rate)", -sr.income_tax_higher,
+            f"40% on earnings £{sa.basic_rate_ceiling:,.0f}–£{sa.higher_rate_ceiling:,.0f}",
+            is_deduction=True)
+        sbd_row("Less: Income tax (additional rate)", -sr.income_tax_additional,
+            f"45% on earnings above £{sa.higher_rate_ceiling:,.0f}",
+            is_deduction=True)
+        sbd_row("Less: Employee NI (standard)", -sr.employee_ni_standard,
+            f"{sa.ni_rate_standard:.0%} on earnings £{sa.ni_primary_threshold:,.0f}–£{sa.ni_upper_earnings_limit:,.0f}",
+            is_deduction=True)
+        sbd_row("Less: Employee NI (above UEL)", -sr.employee_ni_above_uel,
+            f"{sa.ni_rate_above_uel:.0%} on earnings above £{sa.ni_upper_earnings_limit:,.0f}",
+            is_deduction=True)
+        sbd_row("Less: Employee pension (post-tax)", -sr.employee_pension_posttax,
+            "Relief at source only — HMRC tops up at 20%" if sa.pension_scheme_type == "Relief at source" else "Not applicable for this scheme type",
+            is_deduction=True)
+        sbd_row("= Net take-home (annual)", sr.annual_net,
+            "Gross taxable pay minus all taxes and deductions", is_total=True)
+
+        st.markdown("")
+
+        # ── Pension memo ──────────────────────────────────────────────────────
+        sbd_header("Pension memo")
+        sbd_row("Your pension contribution", sr.employee_pension_contribution,
+            f"{sa.employee_pension_rate:.1%} of qualifying earnings")
+        sbd_row("HMRC basic rate top-up", sr.hmrc_basic_rate_topup,
+            "Relief at source only — 20% added by HMRC to pension pot")
+        sbd_row("Employer NI saving to pension", sr.employer_ni_saving_to_pension,
+            "Salary sacrifice only — employer passes NI saving to pension")
+        sbd_row("Total pension pot funded", sr.total_pension_pot,
+            "Your contribution + any top-ups", is_total=True)
 
     st.markdown("---")
     st.subheader("Tax & Deductions Summary")
