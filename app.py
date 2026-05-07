@@ -240,7 +240,30 @@ with tab_ltd:
             for label, value, is_deduction in [
                 ("Gross contract income", lr.annual_gross_contract_income, False),
                 ("Less: Director salary", -lr.director_salary, True),
-                ("Less: Employer NI on salary", -lr.employer_ni_on_salary, True),
+            ]:
+                ca, cb = st.columns([3, 1])
+                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
+                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
+                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+
+            # Employer NI row with popover workings
+            ca, cb, cc = st.columns([2.7, 0.3, 1])
+            ca.markdown("<span style='color: #cc0000;'>Less: Employer NI on salary</span>", unsafe_allow_html=True)
+            cc.markdown(f"<span style='color: #cc0000;'>{fmt(-lr.employer_ni_on_salary)}</span>", unsafe_allow_html=True)
+            with cb:
+                with st.popover("ℹ️"):
+                    st.markdown("**Employer NI workings**")
+                    st.markdown(
+                        f"| | |\n|---|---|\n"
+                        f"| Director salary | £{la.director_salary:,.2f} |\n"
+                        f"| Secondary threshold | £{la.employer_ni_secondary_threshold:,.2f} |\n"
+                        f"| Excess | £{max(0, la.director_salary - la.employer_ni_secondary_threshold):,.2f} |\n"
+                        f"| NI rate | {la.employer_ni_rate:.1%} |\n"
+                        f"| **Employer NI** | **£{lr.employer_ni_on_salary:,.2f}** |"
+                    )
+                    st.caption(f"Formula: (£{la.director_salary:,.0f} − £{la.employer_ni_secondary_threshold:,.0f}) × {la.employer_ni_rate:.1%}")
+
+            for label, value, is_deduction in [
                 ("Less: Professional indemnity insurance", -lr.professional_indemnity_annual, True),
                 ("Less: Relevant Life insurance", -lr.relevant_life_insurance_annual, True),
                 ("Less: Critical illness / IP insurance", -lr.critical_illness_annual, True),
