@@ -124,20 +124,20 @@ with tab_ltd:
         c1, c2, c3 = st.columns(3)
         with c1:
             l_director_salary = st.number_input(
-                "Director salary (£/yr)", value=float(ty["personal_allowance"]), step=100.0, key="l_salary",
+                "Director salary (£/yr)", value=float(ty["personal_allowance"]), step=100.0, key=f"l_salary_{selected_year}",
                 help="Set at personal allowance by default — no income tax and minimal employer NI.",
             )
             ty_note("personal_allowance")
         with c2:
             l_corp_tax = st.number_input(
                 "Corporation tax rate (%)", value=ty["corporation_tax_rate"] * 100,
-                step=1.0, format="%.1f", key="l_corp_tax",
+                step=1.0, format="%.1f", key=f"l_corp_tax_{selected_year}",
                 help="Main rate 25% on profits ≥ £250k. Small profits relief applies below £50k.",
             ) / 100
         with c3:
             l_div_allowance = st.number_input(
                 "Dividend allowance (£/yr)", value=float(ty["dividend_allowance"]),
-                step=100.0, key="l_div_allowance",
+                step=100.0, key=f"l_div_allowance_{selected_year}",
                 help="Tax-free dividend allowance for this tax year.",
             )
             ty_note("dividend_allowance")
@@ -147,14 +147,14 @@ with tab_ltd:
         with c1:
             l_er_ni_rate = st.number_input(
                 "Employer NI rate (%)", value=ty["employer_ni_rate"] * 100,
-                step=0.1, format="%.1f", key="l_er_ni_rate",
+                step=0.1, format="%.1f", key=f"l_er_ni_rate_{selected_year}",
             ) / 100
             ty_note("employer_ni_rate")
         with c2:
             l_er_ni_threshold = st.number_input(
                 "Employer NI secondary threshold (£/yr)",
                 value=float(ty["employer_ni_threshold"]),
-                step=100.0, key="l_er_ni_threshold",
+                step=100.0, key=f"l_er_ni_threshold_{selected_year}",
             )
             ty_note("employer_ni_threshold")
 
@@ -363,14 +363,14 @@ with tab_umbrella:
         with c1:
             u_er_ni_rate = st.number_input(
                 "Employer NI rate (%)", value=ty["employer_ni_rate"] * 100,
-                step=0.1, format="%.1f", key="u_er_ni_rate",
+                step=0.1, format="%.1f", key=f"u_er_ni_rate_{selected_year}",
             ) / 100
             ty_note("employer_ni_rate")
         with c2:
             u_er_ni_threshold = st.number_input(
                 "Employer NI secondary threshold (£/yr)",
                 value=float(ty["employer_ni_threshold"]),
-                step=100.0, key="u_er_ni_threshold",
+                step=100.0, key=f"u_er_ni_threshold_{selected_year}",
             )
             ty_note("employer_ni_threshold")
 
@@ -558,14 +558,14 @@ with tab_salaried:
         with c1:
             s_er_ni_rate = st.number_input(
                 "Employer NI rate (%)", value=ty["employer_ni_rate"] * 100,
-                step=0.1, format="%.1f", key="s_er_ni_rate",
+                step=0.1, format="%.1f", key=f"s_er_ni_rate_{selected_year}",
             ) / 100
             ty_note("employer_ni_rate")
         with c2:
             s_er_ni_threshold = st.number_input(
                 "Employer NI secondary threshold (£/yr)",
                 value=float(ty["employer_ni_threshold"]),
-                step=100.0, key="s_er_ni_threshold",
+                step=100.0, key=f"s_er_ni_threshold_{selected_year}",
             )
             ty_note("employer_ni_threshold")
 
