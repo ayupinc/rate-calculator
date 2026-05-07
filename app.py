@@ -212,7 +212,15 @@ with tab_ltd:
         dividend_basic_rate=ty["dividend_basic_rate"],
         dividend_higher_rate=ty["dividend_higher_rate"],
         basic_rate_band_upper=ty["basic_rate_ceiling"],
+        higher_rate_band_upper=ty["higher_rate_ceiling"],
         personal_allowance=ty["personal_allowance"],
+        income_tax_basic=ty["income_tax_basic"],
+        income_tax_higher=ty["income_tax_higher"],
+        income_tax_additional=ty["income_tax_additional"],
+        ni_primary_threshold=ty["ni_primary_threshold"],
+        ni_upper_earnings_limit=ty["ni_upper_earnings_limit"],
+        ni_rate_standard=ty["ni_rate_standard"],
+        ni_rate_above_uel=ty["ni_rate_above_uel"],
         professional_indemnity_per_year=l_pi,
         employer_pension_per_month=l_pension / 12,
         relevant_life_insurance_per_month=l_life / 12,
@@ -304,13 +312,11 @@ with tab_ltd:
 
         # ── Step 3 — Personal tax ────────────────────────────────────────────
         bd_header("Step 3 — Personal tax")
-        l_income_tax_on_salary = max(0, (l_director_salary - ty["personal_allowance"]) * ty["income_tax_basic"])
-        l_employee_ni_on_salary = max(0, min(l_director_salary, ty["ni_upper_earnings_limit"]) - ty["ni_primary_threshold"]) * ty["ni_rate_standard"] if l_director_salary > ty["ni_primary_threshold"] else 0
-        bd_row("Less: Income tax on salary", -l_income_tax_on_salary,
-            f"Salary £{l_director_salary:,.0f} minus personal allowance £{ty['personal_allowance']:,.0f} × 20% basic rate. Zero at default salary." if l_income_tax_on_salary == 0 else f"(£{l_director_salary:,.0f} − £{ty['personal_allowance']:,.0f}) × {ty['income_tax_basic']:.0%}",
+        bd_row("Less: Income tax on salary", -lr.income_tax_on_salary,
+            f"Salary at personal allowance — no income tax due." if lr.income_tax_on_salary == 0 else f"(£{la.director_salary:,.0f} − £{la.personal_allowance:,.0f}) × {la.income_tax_basic:.0%}",
             is_deduction=True)
-        bd_row("Less: Employee NI on salary", -l_employee_ni_on_salary,
-            f"Salary at or below NI primary threshold £{ty['ni_primary_threshold']:,.0f} — no employee NI due." if l_employee_ni_on_salary == 0 else f"(£{l_director_salary:,.0f} − £{ty['ni_primary_threshold']:,.0f}) × {ty['ni_rate_standard']:.0%}",
+        bd_row("Less: Employee NI on salary", -lr.employee_ni_on_salary,
+            f"Salary at or below NI primary threshold £{la.ni_primary_threshold:,.0f} — no employee NI due." if lr.employee_ni_on_salary == 0 else f"(£{la.director_salary:,.0f} − £{la.ni_primary_threshold:,.0f}) × {la.ni_rate_standard:.0%}",
             is_deduction=True)
         bd_row("Less: Dividend tax", -lr.dividend_tax,
             f"Allowance £{la.dividend_allowance:,.0f} tax-free | Basic {la.dividend_basic_rate:.2%} £{lr.dividends_basic_rate_band * la.dividend_basic_rate:,.0f} | Higher {la.dividend_higher_rate:.2%} £{lr.dividends_higher_rate_band * la.dividend_higher_rate:,.0f}",

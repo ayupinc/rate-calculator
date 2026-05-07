@@ -23,7 +23,15 @@ class LtdCoAssumptions:
     dividend_basic_rate: float = 0.0875
     dividend_higher_rate: float = 0.3375
     basic_rate_band_upper: float = 50_270
+    higher_rate_band_upper: float = 125_140
     personal_allowance: float = 12_570
+    income_tax_basic: float = 0.20
+    income_tax_higher: float = 0.40
+    income_tax_additional: float = 0.45
+    ni_primary_threshold: float = 12_570
+    ni_upper_earnings_limit: float = 50_270
+    ni_rate_standard: float = 0.08
+    ni_rate_above_uel: float = 0.02
 
     # Business expenses (annual)
     professional_indemnity_per_year: float = 1_200
@@ -128,8 +136,26 @@ def calculate(day_rate: float, assumptions: LtdCoAssumptions = None) -> LtdCoRes
     r.total_personal_income = r.director_salary + r.dividends_drawn
 
     # Step 3 — personal tax on salary
-    r.income_tax_on_salary = 0  # salary at personal allowance
-    r.employee_ni_on_salary = 0  # salary below NI primary threshold
+    taxable_salary = max(0, a.director_salary - a.personal_allowance)
+    basic_band = max(0, a.basic_rate_band_upper - a.personal_allowance)
+    higher_band = max(0, a.higher_rate_band_upper - a.basic_rate_band_upper)
+    salary_basic = min(taxable_salary, basic_band)
+    salary_higher = min(max(0, taxable_salary - basic_band), higher_band)
+    salary_additional = max(0, taxable_salary - basic_band - higher_band)
+    r.income_tax_on_salary = (
+        salary_basic * a.income_tax_basic
+        + salary_higher * a.income_tax_higher
+        + salary_additional * a.income_tax_additional
+    )
+    ni_standard_base = min(
+        max(0, a.director_salary - a.ni_primary_threshold),
+        a.ni_upper_earnings_limit - a.ni_primary_threshold
+    )
+    ni_above_uel_base = max(0, a.director_salary - a.ni_upper_earnings_limit)
+    r.employee_ni_on_salary = (
+        ni_standard_base * a.ni_rate_standard
+        + ni_above_uel_base * a.ni_rate_above_uel
+    )
 
     # Dividend tax
     r.dividend_allowance_tax_free = a.dividend_allowance
@@ -147,7 +173,7 @@ def calculate(day_rate: float, assumptions: LtdCoAssumptions = None) -> LtdCoRes
     r.net_dividends_after_tax = r.dividends_drawn - r.dividend_tax
 
     # Net take-home
-    r.annual_net = r.director_salary + r.net_dividends_after_tax
+    r.annual_net = r.director_salary - r.income_tax_on_salary - r.employee_ni_on_salary + r.net_dividends_after_tax
     r.monthly_net = r.annual_net / 12
     r.daily_net = r.annual_net / r.days_per_year
     r.hourly_net = r.annual_net / r.hours_per_year
