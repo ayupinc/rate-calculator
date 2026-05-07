@@ -344,7 +344,7 @@ with tab_umbrella:
             u_days_per_week = st.number_input("Days/week", value=5.0, step=0.5, key="u_dpw")
         with c2:
             u_weeks_per_year = st.number_input("Weeks/year", value=46, step=1, key="u_wpy",
-                help="Working weeks per year. With rolled-up holiday pay, set to weeks you actually bill (e.g. 46). With accrued holiday, set to all contracted weeks including leave.")
+                help="Set to the number of weeks you expect to bill. Exclude holiday weeks and bank holidays — e.g. 46 weeks assumes roughly 6 weeks off in total. Holiday pay under umbrella does not add to your income; it is built into the assignment rate and redistributed by the umbrella company.")
         with c3:
             u_hours_per_day = st.number_input("Hours/day", value=7.5, step=0.5, key="u_hpd")
 
@@ -357,21 +357,6 @@ with tab_umbrella:
             u_levy_rate = st.number_input("Apprenticeship Levy rate (%)", value=0.5, step=0.1,
                 format="%.1f", key="u_levy",
                 help="0.5% of payroll. Most umbrellas pass this through. Set to 0 if not charged.") / 100
-
-        st.markdown("**Holiday pay**")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            u_holiday_model = st.selectbox(
-                "Holiday pay model",
-                ["Rolled-up (included in rate)", "Accrued separately"],
-                index=0, key="u_holiday_model",
-                help="Rolled-up: holiday pay is built into your day rate and paid across all working weeks — you are paid it whether you take leave or not, but receive no additional pay when you do. Accrued: the umbrella holds back ~12.07% and pays it when you take leave.",
-            )
-        with c2:
-            u_holiday_rate = st.number_input(
-                "Holiday pay rate (%)", value=12.07, step=0.01, format="%.2f", key="u_holiday_rate",
-                help="Statutory minimum is 12.07% (28 days out of 232 working days). Your umbrella may use a different rate.",
-            ) / 100
 
         st.markdown("**Employer NI**")
         c1, c2, c3 = st.columns(3)
