@@ -234,77 +234,90 @@ with tab_ltd:
     m4.metric("Effective tax rate", f"{lr.effective_tax_rate:.1%}")
 
     with st.expander("Full Breakdown"):
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**Step 1 — Company-level deductions**")
-            for label, value, is_deduction in [
-                ("Gross contract income", lr.annual_gross_contract_income, False),
-                ("Less: Director salary", -lr.director_salary, True),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
-            # Employer NI row with popover workings
-            ca, cb, cc = st.columns([2.7, 0.3, 1])
-            ca.markdown("<span style='color: #cc0000;'>Less: Employer NI on salary</span>", unsafe_allow_html=True)
-            cc.markdown(f"<span style='color: #cc0000;'>{fmt(-lr.employer_ni_on_salary)}</span>", unsafe_allow_html=True)
-            with cb:
-                with st.popover("ℹ️"):
-                    st.markdown("**Employer NI workings**")
-                    st.markdown(
-                        f"| | |\n|---|---|\n"
-                        f"| Director salary | £{la.director_salary:,.2f} |\n"
-                        f"| Secondary threshold | £{la.employer_ni_secondary_threshold:,.2f} |\n"
-                        f"| Excess | £{max(0, la.director_salary - la.employer_ni_secondary_threshold):,.2f} |\n"
-                        f"| NI rate | {la.employer_ni_rate:.1%} |\n"
-                        f"| **Employer NI** | **£{lr.employer_ni_on_salary:,.2f}** |"
-                    )
-                    st.caption(f"Formula: (£{la.director_salary:,.0f} − £{la.employer_ni_secondary_threshold:,.0f}) × {la.employer_ni_rate:.1%}")
+        def bd_row(label, value, note="", is_deduction=False, is_total=False):
+            """Render a single three-column breakdown row."""
+            ca, cb, cc = st.columns([3, 1, 2])
+            if is_total:
+                style = "font-weight: bold;"
+            elif is_deduction:
+                style = "color: #cc0000;"
+            else:
+                style = ""
+            note_style = "color: #888888; font-size: 0.85em;"
+            ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
+            cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+            cc.markdown(f"<span style='{note_style}'>{note}</span>", unsafe_allow_html=True)
 
-            for label, value, is_deduction in [
-                ("Less: Professional indemnity insurance", -lr.professional_indemnity_annual, True),
-                ("Less: Relevant Life insurance", -lr.relevant_life_insurance_annual, True),
-                ("Less: Critical illness / IP insurance", -lr.critical_illness_annual, True),
-                ("Less: Accountancy fees", -lr.accountancy_annual, True),
-                ("Less: Other business expenses", -lr.other_expenses_annual, True),
-                ("Less: Employer pension", -lr.employer_pension_annual, True),
-                ("= Taxable profit", lr.taxable_profit, False),
-                ("Less: Corporation tax", -lr.corporation_tax, True),
-                ("= Distributable profit", lr.distributable_profit, False),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else "font-weight: bold;"
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        def bd_header(text):
+            st.markdown(f"**{text}**")
+            ca, cb, cc = st.columns([3, 1, 2])
+            ca.markdown("<span style='color:#888;font-size:0.8em;'>Description</span>", unsafe_allow_html=True)
+            cb.markdown("<span style='color:#888;font-size:0.8em;'>Amount</span>", unsafe_allow_html=True)
+            cc.markdown("<span style='color:#888;font-size:0.8em;'>Note</span>", unsafe_allow_html=True)
 
-        with right:
-            st.markdown("**Step 2 — Personal income**")
-            for label, value in [
-                ("Director salary received", lr.director_salary),
-                ("Dividends drawn", lr.dividends_drawn),
-                ("Total personal income", lr.total_personal_income),
-            ]:
-                ca, cb = st.columns([3, 1])
-                bold = "font-weight: bold;" if "Total" in label else ""
-                ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        # ── Step 1 — Company-level deductions ────────────────────────────────
+        bd_header("Step 1 — Company-level deductions")
+        bd_row("Gross contract income", lr.annual_gross_contract_income,
+            f"{la.days_per_week} days × {la.weeks_per_year} weeks × £{lr.day_rate:,.2f}/day",
+            is_total=True)
+        bd_row("Less: Director salary", -lr.director_salary,
+            "Set at personal allowance — no income tax, minimal employer NI",
+            is_deduction=True)
+        bd_row("Less: Employer NI on salary", -lr.employer_ni_on_salary,
+            f"(£{la.director_salary:,.0f} − £{la.employer_ni_secondary_threshold:,.0f}) × {la.employer_ni_rate:.1%}",
+            is_deduction=True)
+        bd_row("Less: Professional indemnity insurance", -lr.professional_indemnity_annual,
+            "From assumptions", is_deduction=True)
+        bd_row("Less: Relevant Life insurance", -lr.relevant_life_insurance_annual,
+            "From assumptions", is_deduction=True)
+        bd_row("Less: Critical illness / IP insurance", -lr.critical_illness_annual,
+            "From assumptions", is_deduction=True)
+        bd_row("Less: Accountancy fees", -lr.accountancy_annual,
+            "From assumptions", is_deduction=True)
+        bd_row("Less: Other business expenses", -lr.other_expenses_annual,
+            "From assumptions", is_deduction=True)
+        bd_row("Less: Employer pension", -lr.employer_pension_annual,
+            "From assumptions — deducted before corporation tax",
+            is_deduction=True)
+        bd_row("= Taxable profit", lr.taxable_profit,
+            "Gross income minus all allowable deductions",
+            is_total=True)
+        bd_row("Less: Corporation tax", -lr.corporation_tax,
+            f"£{lr.taxable_profit:,.0f} × {la.corporation_tax_rate:.0%}",
+            is_deduction=True)
+        bd_row("= Distributable profit", lr.distributable_profit,
+            "Available to draw as dividends",
+            is_total=True)
 
-            st.markdown("")
-            st.markdown("**Step 3 — Personal tax on dividends**")
-            for label, value, is_deduction in [
-                ("Dividend allowance — tax free", lr.dividend_allowance_tax_free, False),
-                ("Dividends within basic rate band", lr.dividends_basic_rate_band, False),
-                ("Dividends above basic rate band", lr.dividends_higher_rate_band, False),
-                ("Less: Dividend tax", -lr.dividend_tax, True),
-                ("Net dividends after personal tax", lr.net_dividends_after_tax, False),
-                ("= Net take-home (annual)", lr.annual_net, False),
-            ]:
-                ca, cb = st.columns([3, 1])
-                style = "color: #cc0000;" if is_deduction else ("font-weight: bold;" if "take-home" in label else "")
-                ca.markdown(f"<span style='{style}'>{plabel(label)}</span>", unsafe_allow_html=True)
-                cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+        st.markdown("")
+
+        # ── Step 2 — Personal income ──────────────────────────────────────────
+        bd_header("Step 2 — Personal income")
+        bd_row("Director salary received", lr.director_salary,
+            "Paid via payroll — within personal allowance")
+        bd_row("Dividends drawn", lr.dividends_drawn,
+            "Full distributable profit drawn as dividends")
+        bd_row("Total personal income", lr.total_personal_income,
+            "Salary + dividends", is_total=True)
+
+        st.markdown("")
+
+        # ── Step 3 — Personal tax on dividends ───────────────────────────────
+        bd_header("Step 3 — Personal tax on dividends")
+        bd_row("Dividend allowance — tax free", lr.dividend_allowance_tax_free,
+            f"£{la.dividend_allowance:,.0f} annual allowance, no tax")
+        bd_row("Dividends within basic rate band", lr.dividends_basic_rate_band,
+            f"Taxed at {la.dividend_basic_rate:.2%} (basic rate)")
+        bd_row("Dividends above basic rate band", lr.dividends_higher_rate_band,
+            f"Taxed at {la.dividend_higher_rate:.2%} (higher rate)")
+        bd_row("Less: Dividend tax", -lr.dividend_tax,
+            f"Basic £{lr.dividends_basic_rate_band * la.dividend_basic_rate:,.0f} + Higher £{lr.dividends_higher_rate_band * la.dividend_higher_rate:,.0f}",
+            is_deduction=True)
+        bd_row("Net dividends after personal tax", lr.net_dividends_after_tax,
+            "Dividends minus dividend tax")
+        bd_row("= Net take-home (annual)", lr.annual_net,
+            "Salary + net dividends", is_total=True)
 
     st.markdown("---")
     st.subheader("Tax & Deductions Summary")
