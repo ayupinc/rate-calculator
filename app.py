@@ -131,9 +131,18 @@ with tab_ltd:
         l_days_per_week = a_row("Days per week",
             lambda: st.number_input("", value=5.0, step=0.5, key="l_dpw", label_visibility="collapsed"),
             "Number of days you work per week")
-        l_weeks_per_year = a_row("Weeks per year",
-            lambda: st.number_input("", value=46, step=1, key="l_wpy", label_visibility="collapsed"),
-            "Billable weeks — exclude bank holidays and annual leave. 46 weeks ≈ 6 weeks off.")
+        l_leave_days = a_row("Annual leave days",
+            lambda: st.number_input("", value=19, step=1, key="l_leave", label_visibility="collapsed"),
+            "Paid holiday days per year, excluding bank holidays. UK statutory minimum is 20 days.")
+        l_bank_holidays = a_row("Bank holidays",
+            lambda: st.number_input("", value=11, step=1, key="l_bh", label_visibility="collapsed"),
+            "Public bank holidays per year. England & Wales has 8 statutory days plus 3 additional common holidays.")
+        l_weeks_off = (l_leave_days + l_bank_holidays) / l_days_per_week if l_days_per_week > 0 else 0
+        l_weeks_per_year = round(52 - l_weeks_off, 1)
+        ca_wp, cb_wp, cc_wp = st.columns([2, 1, 3])
+        ca_wp.markdown("<span style='font-size:0.95em;'>Billable weeks per year</span>", unsafe_allow_html=True)
+        cb_wp.markdown(f"<span style='font-weight:bold;'>{l_weeks_per_year:.1f}</span>", unsafe_allow_html=True)
+        cc_wp.markdown(f"<span style='color:#888888;font-size:0.85em;'>52 − ({l_leave_days:.0f} + {l_bank_holidays:.0f}) days ÷ {l_days_per_week:.0f} days/week</span>", unsafe_allow_html=True)
         l_hours_per_day = a_row("Hours per day",
             lambda: st.number_input("", value=7.5, step=0.5, key="l_hpd", label_visibility="collapsed"),
             "Used to calculate hourly equivalent rate only")
@@ -145,43 +154,41 @@ with tab_ltd:
             "Set at personal allowance by default — no income tax and minimal employer NI on the salary itself")
         l_corp_tax = a_row("Corporation tax rate (%)",
             lambda: st.number_input("", value=ty["corporation_tax_rate"] * 100, step=1.0, format="%.1f", key=f"l_corp_tax_{selected_year}", label_visibility="collapsed") / 100,
-            "Main rate 25% on profits ≥ £250k. Small profits relief may apply below £50k — check with your accountant")
+            f"HMRC rate for {selected_year}. Main rate 25% on profits ≥ £250k. Small profits relief may apply below £50k — check with your accountant")
         l_div_allowance = a_row("Dividend allowance (£/yr)",
             lambda: st.number_input("", value=float(ty["dividend_allowance"]), step=100.0, key=f"l_div_allowance_{selected_year}", label_visibility="collapsed"),
-            "Dividends within this allowance are tax-free. Updates with tax year selection.")
+            f"HMRC rate for {selected_year}. Dividends within this allowance are tax-free.")
 
         st.markdown("")
         a_header("Employer NI")
         l_er_ni_rate = a_row("Employer NI rate (%)",
             lambda: st.number_input("", value=ty["employer_ni_rate"] * 100, step=0.1, format="%.1f", key=f"l_er_ni_rate_{selected_year}", label_visibility="collapsed") / 100,
-            "Rate charged on salary above the secondary threshold. Updates with tax year selection.")
+            f"HMRC rate for {selected_year}. Charged on director salary above the secondary threshold.")
         l_er_ni_threshold = a_row("Secondary threshold (£/yr)",
             lambda: st.number_input("", value=float(ty["employer_ni_threshold"]), step=100.0, key=f"l_er_ni_threshold_{selected_year}", label_visibility="collapsed"),
-            "Employer NI is only charged on salary above this amount. Updates with tax year selection.")
+            f"HMRC rate for {selected_year}. Director salary below this is not subject to employer NI.")
 
         st.markdown("")
-        a_header("Business expenses")
+        a_header("Business expenses & pension")
         l_pi = a_row("Professional indemnity insurance (£/yr)",
             lambda: st.number_input("", value=1_200, step=100, key="l_pi", label_visibility="collapsed"),
-            "Deducted before corporation tax. Typical contractor cost — check your actual premium.")
+            "Enter your yearly premium. Typical contractor cost — check your actual quote.")
         l_life = a_row("Relevant Life insurance (£/yr)",
             lambda: st.number_input("", value=864, step=50, key="l_life", label_visibility="collapsed"),
-            "Company-paid life cover. Tax-efficient — premiums paid from pre-tax profit.")
+            "Company-paid life cover. Premiums paid from pre-tax profit.")
         l_ci = a_row("Critical illness / IP insurance (£/yr)",
             lambda: st.number_input("", value=600, step=50, key="l_ci", label_visibility="collapsed"),
             "Income protection if you cannot work. Contractor equivalent of employer sick pay.")
         l_accountancy = a_row("Accountancy fees (£/yr)",
             lambda: st.number_input("", value=1_800, step=100, key="l_accountancy", label_visibility="collapsed"),
-            "Deducted before corporation tax. Adjust to your actual accountant's fee.")
+            "Adjust to your actual accountant's fee.")
         l_other = a_row("Other business expenses (£/yr)",
             lambda: st.number_input("", value=1_000, step=100, key="l_other", label_visibility="collapsed"),
-            "Phone, software, home office, travel etc. All deducted before corporation tax.")
+            "Phone, software, home office, travel etc.")
 
-        st.markdown("")
-        a_header("Pension")
         l_pension = a_row("Employer pension contribution (£/yr)",
             lambda: st.number_input("", value=6_000, step=100, key="l_pension", label_visibility="collapsed"),
-            "Company contribution paid directly into your pension. Deducted before corporation tax — one of the most tax-efficient ways to extract value from your Ltd Co.")
+            "Company contribution paid directly into your pension before corporation tax. Adjust to your actual contribution.")
 
     # Convert input rate to daily
     if l_rate_period == "Per Day":
@@ -295,14 +302,8 @@ with tab_ltd:
 
         # ── Step 3 — Personal tax on dividends ───────────────────────────────
         bd_header("Step 3 — Personal tax on dividends")
-        bd_row("Dividend allowance — tax free", lr.dividend_allowance_tax_free,
-            f"£{la.dividend_allowance:,.0f} annual allowance, no tax")
-        bd_row("Dividends within basic rate band", lr.dividends_basic_rate_band,
-            f"Taxed at {la.dividend_basic_rate:.2%} (basic rate)")
-        bd_row("Dividends above basic rate band", lr.dividends_higher_rate_band,
-            f"Taxed at {la.dividend_higher_rate:.2%} (higher rate)")
         bd_row("Less: Dividend tax", -lr.dividend_tax,
-            f"Basic £{lr.dividends_basic_rate_band * la.dividend_basic_rate:,.0f} + Higher £{lr.dividends_higher_rate_band * la.dividend_higher_rate:,.0f}",
+            f"Allowance £{la.dividend_allowance:,.0f} tax-free | Basic {la.dividend_basic_rate:.2%} £{lr.dividends_basic_rate_band * la.dividend_basic_rate:,.0f} | Higher {la.dividend_higher_rate:.2%} £{lr.dividends_higher_rate_band * la.dividend_higher_rate:,.0f}",
             is_deduction=True)
         bd_row("Net dividends after personal tax", lr.net_dividends_after_tax,
             "Dividends minus dividend tax")
@@ -384,9 +385,18 @@ with tab_umbrella:
         u_days_per_week = ua_row("Days per week",
             lambda: st.number_input("", value=5.0, step=0.5, key="u_dpw", label_visibility="collapsed"),
             "Number of days you work per week")
-        u_weeks_per_year = ua_row("Weeks per year",
-            lambda: st.number_input("", value=46, step=1, key="u_wpy", label_visibility="collapsed"),
-            "Set to billable weeks only. Exclude holiday and bank holidays. Holiday pay under umbrella does not add income — it is built into the assignment rate and redistributed by the umbrella.")
+        u_leave_days = ua_row("Annual leave days",
+            lambda: st.number_input("", value=19, step=1, key="u_leave", label_visibility="collapsed"),
+            "Paid holiday days per year, excluding bank holidays. Holiday pay under umbrella does not add income — it is built into the assignment rate and redistributed by the umbrella.")
+        u_bank_holidays = ua_row("Bank holidays",
+            lambda: st.number_input("", value=11, step=1, key="u_bh", label_visibility="collapsed"),
+            "Public bank holidays per year. England & Wales has 8 statutory days plus 3 additional common holidays.")
+        u_weeks_off = (u_leave_days + u_bank_holidays) / u_days_per_week if u_days_per_week > 0 else 0
+        u_weeks_per_year = round(52 - u_weeks_off, 1)
+        ca_wp, cb_wp, cc_wp = st.columns([2, 1, 3])
+        ca_wp.markdown("<span style='font-size:0.95em;'>Billable weeks per year</span>", unsafe_allow_html=True)
+        cb_wp.markdown(f"<span style='font-weight:bold;'>{u_weeks_per_year:.1f}</span>", unsafe_allow_html=True)
+        cc_wp.markdown(f"<span style='color:#888888;font-size:0.85em;'>52 − ({u_leave_days:.0f} + {u_bank_holidays:.0f}) days ÷ {u_days_per_week:.0f} days/week</span>", unsafe_allow_html=True)
         u_hours_per_day = ua_row("Hours per day",
             lambda: st.number_input("", value=7.5, step=0.5, key="u_hpd", label_visibility="collapsed"),
             "Used to calculate hourly equivalent rate only")
@@ -404,10 +414,10 @@ with tab_umbrella:
         ua_header("Employer NI")
         u_er_ni_rate = ua_row("Employer NI rate (%)",
             lambda: st.number_input("", value=ty["employer_ni_rate"] * 100, step=0.1, format="%.1f", key=f"u_er_ni_rate_{selected_year}", label_visibility="collapsed") / 100,
-            "Under umbrella, employer NI is charged against your assignment rate — not paid by the client on top. Updates with tax year selection.")
+            f"HMRC rate for {selected_year}. Under umbrella this is deducted from your assignment rate, not paid by the client on top.")
         u_er_ni_threshold = ua_row("Secondary threshold (£/yr)",
             lambda: st.number_input("", value=float(ty["employer_ni_threshold"]), step=100.0, key=f"u_er_ni_threshold_{selected_year}", label_visibility="collapsed"),
-            "Employer NI is only charged on gross PAYE salary above this amount. Updates with tax year selection.")
+            f"HMRC rate for {selected_year}. Employer NI only applies to gross PAYE salary above this amount.")
 
         st.markdown("")
         ua_header("Pension")
@@ -419,7 +429,7 @@ with tab_umbrella:
             "Your personal pension contribution as a percentage of qualifying earnings (£6,240–£50,270)")
         u_er_pension = ua_row("Employer contribution (%)",
             lambda: st.number_input("", value=3.0, step=0.5, format="%.1f", key="u_er_pension", label_visibility="collapsed") / 100,
-            "Umbrella employer contribution. Statutory minimum is 3%. Deducted from assignment rate in Step 1.")
+            "Statutory minimum is 3%. Deducted from your assignment rate in Step 1 — this is not new money from the client, it reduces your gross PAYE salary.")
 
         u_ni_passback = False
         if u_pension_type == "Salary sacrifice":
@@ -534,20 +544,11 @@ with tab_umbrella:
         ubd_header("Step 3 — Income tax & employee NI")
         ubd_row("Gross taxable pay", ur.gross_taxable_pay,
             "Starting point for tax calculation")
-        ubd_row("Less: Income tax (basic rate)", -ur.income_tax_basic,
-            f"20% on earnings £{ua.personal_allowance:,.0f}–£{ua.basic_rate_ceiling:,.0f}",
+        ubd_row("Less: Income tax", -ur.total_income_tax,
+            f"Basic 20% £{ur.income_tax_basic:,.0f} | Higher 40% £{ur.income_tax_higher:,.0f} | Additional 45% £{ur.income_tax_additional:,.0f}",
             is_deduction=True)
-        ubd_row("Less: Income tax (higher rate)", -ur.income_tax_higher,
-            f"40% on earnings £{ua.basic_rate_ceiling:,.0f}–£{ua.higher_rate_ceiling:,.0f}",
-            is_deduction=True)
-        ubd_row("Less: Income tax (additional rate)", -ur.income_tax_additional,
-            f"45% on earnings above £{ua.higher_rate_ceiling:,.0f}",
-            is_deduction=True)
-        ubd_row("Less: Employee NI (standard)", -ur.employee_ni_standard,
-            f"{ua.ni_rate_standard:.0%} on earnings £{ua.ni_primary_threshold:,.0f}–£{ua.ni_upper_earnings_limit:,.0f}",
-            is_deduction=True)
-        ubd_row("Less: Employee NI (above UEL)", -ur.employee_ni_above_uel,
-            f"{ua.ni_rate_above_uel:.0%} on earnings above £{ua.ni_upper_earnings_limit:,.0f}",
+        ubd_row("Less: Employee NI", -ur.total_employee_ni,
+            f"Standard {ua.ni_rate_standard:.0%} £{ur.employee_ni_standard:,.0f} | Above UEL {ua.ni_rate_above_uel:.0%} £{ur.employee_ni_above_uel:,.0f}",
             is_deduction=True)
         ubd_row("Less: Employee pension (post-tax)", -ur.employee_pension_posttax,
             "Relief at source only — deducted after tax" if ua.pension_scheme_type == "Relief at source" else "Not applicable for this scheme type",
@@ -623,21 +624,30 @@ with tab_salaried:
         s_days_per_week = sa_row("Days per week",
             lambda: st.number_input("", value=5.0, step=0.5, key="s_dpw", label_visibility="collapsed"),
             "Number of days you work per week")
-        s_weeks_per_year = sa_row("Weeks per year",
-            lambda: st.number_input("", value=46, step=1, key="s_wpy", label_visibility="collapsed"),
-            "Used to calculate the equivalent day rate. For comparison with contractor rates, 46 weeks accounts for holiday and bank holidays.")
+        s_leave_days = sa_row("Annual leave days",
+            lambda: st.number_input("", value=19, step=1, key="s_leave", label_visibility="collapsed"),
+            "Paid holiday days per year, excluding bank holidays. UK statutory minimum is 20 days.")
+        s_bank_holidays = sa_row("Bank holidays",
+            lambda: st.number_input("", value=11, step=1, key="s_bh", label_visibility="collapsed"),
+            "Public bank holidays per year. England & Wales has 8 statutory days plus 3 additional common holidays.")
+        s_weeks_off = (s_leave_days + s_bank_holidays) / s_days_per_week if s_days_per_week > 0 else 0
+        s_weeks_per_year = round(52 - s_weeks_off, 1)
+        ca_wp, cb_wp, cc_wp = st.columns([2, 1, 3])
+        ca_wp.markdown("<span style='font-size:0.95em;'>Billable weeks per year</span>", unsafe_allow_html=True)
+        cb_wp.markdown(f"<span style='font-weight:bold;'>{s_weeks_per_year:.1f}</span>", unsafe_allow_html=True)
+        cc_wp.markdown(f"<span style='color:#888888;font-size:0.85em;'>52 − ({s_leave_days:.0f} + {s_bank_holidays:.0f}) days ÷ {s_days_per_week:.0f} days/week</span>", unsafe_allow_html=True)
         s_hours_per_day = sa_row("Hours per day",
             lambda: st.number_input("", value=7.5, step=0.5, key="s_hpd", label_visibility="collapsed"),
-            "Used to calculate hourly equivalent rate only")
+            "Used to calculate the hourly equivalent rate only")
 
         st.markdown("")
         sa_header("Employer NI")
         s_er_ni_rate = sa_row("Employer NI rate (%)",
             lambda: st.number_input("", value=ty["employer_ni_rate"] * 100, step=0.1, format="%.1f", key=f"s_er_ni_rate_{selected_year}", label_visibility="collapsed") / 100,
-            "Paid by the employer on top of your salary — shown in the Cost to Employer section. Updates with tax year selection.")
+            f"HMRC rate for {selected_year}. Paid by employer on top of your salary — see Cost to Employer.")
         s_er_ni_threshold = sa_row("Secondary threshold (£/yr)",
             lambda: st.number_input("", value=float(ty["employer_ni_threshold"]), step=100.0, key=f"s_er_ni_threshold_{selected_year}", label_visibility="collapsed"),
-            "Employer NI is only charged on salary above this amount. Updates with tax year selection.")
+            f"HMRC rate for {selected_year}. Director salary below this is not subject to employer NI.")
 
         st.markdown("")
         sa_header("Pension")
@@ -737,20 +747,11 @@ with tab_salaried:
 
         sbd_header("Step 3 — Income tax & employee NI")
         sbd_row("Gross taxable pay", sr.gross_taxable_pay, "Starting point for tax")
-        sbd_row("Less: Income tax (basic rate)", -sr.income_tax_basic,
-            f"20% on earnings £{sa.personal_allowance:,.0f}–£{sa.basic_rate_ceiling:,.0f}",
+        sbd_row("Less: Income tax", -(sr.income_tax_basic + sr.income_tax_higher + sr.income_tax_additional),
+            f"Basic 20% £{sr.income_tax_basic:,.0f} | Higher 40% £{sr.income_tax_higher:,.0f} | Additional 45% £{sr.income_tax_additional:,.0f}",
             is_deduction=True)
-        sbd_row("Less: Income tax (higher rate)", -sr.income_tax_higher,
-            f"40% on earnings £{sa.basic_rate_ceiling:,.0f}–£{sa.higher_rate_ceiling:,.0f}",
-            is_deduction=True)
-        sbd_row("Less: Income tax (additional rate)", -sr.income_tax_additional,
-            f"45% on earnings above £{sa.higher_rate_ceiling:,.0f}",
-            is_deduction=True)
-        sbd_row("Less: Employee NI (standard)", -sr.employee_ni_standard,
-            f"{sa.ni_rate_standard:.0%} on earnings £{sa.ni_primary_threshold:,.0f}–£{sa.ni_upper_earnings_limit:,.0f}",
-            is_deduction=True)
-        sbd_row("Less: Employee NI (above UEL)", -sr.employee_ni_above_uel,
-            f"{sa.ni_rate_above_uel:.0%} on earnings above £{sa.ni_upper_earnings_limit:,.0f}",
+        sbd_row("Less: Employee NI", -(sr.employee_ni_standard + sr.employee_ni_above_uel),
+            f"Standard {sa.ni_rate_standard:.0%} £{sr.employee_ni_standard:,.0f} | Above UEL {sa.ni_rate_above_uel:.0%} £{sr.employee_ni_above_uel:,.0f}",
             is_deduction=True)
         sbd_row("Less: Employee pension (post-tax)", -sr.employee_pension_posttax,
             "Relief at source only — HMRC tops up at 20%" if sa.pension_scheme_type == "Relief at source" else "Not applicable for this scheme type",
