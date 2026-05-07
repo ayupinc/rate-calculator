@@ -465,18 +465,6 @@ with tab_umbrella:
                 f"£{u_gross_paye_weekly:,.2f}/week · "
                 f"£{u_gross_paye_monthly:,.2f}/month"
             )
-            # Holiday pay note
-            if u_holiday_model == "Rolled-up (included in rate)":
-                st.caption(
-                    f"ℹ️ Holiday pay (rolled-up): £{u_holiday_pay_annual:,.2f}/yr "
-                    f"({u_holiday_rate:.2%} of gross) — already included in your rate. "
-                    f"You receive no additional pay when taking leave."
-                )
-            else:
-                st.caption(
-                    f"ℹ️ Holiday pay (accrued): £{u_holiday_pay_annual:,.2f}/yr "
-                    f"({u_holiday_rate:.2%} of gross) — held by the umbrella and paid when you take leave."
-                )
 
             st.markdown("")
             st.markdown("**Step 2 — Pre-tax deductions**")
