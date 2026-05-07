@@ -136,10 +136,10 @@ with tab_ltd:
             "Used to calculate hourly equivalent rate only")
         l_leave_days = a_row("Annual leave days",
             lambda: st.number_input("", value=19, step=1, key="l_leave", label_visibility="collapsed"),
-            "Paid holiday days per year, excluding bank holidays. UK statutory minimum is 20 days.")
+            "Unpaid holidays per year, excluding bank holidays.")
         l_bank_holidays = a_row("Bank holidays",
             lambda: st.number_input("", value=11, step=1, key="l_bh", label_visibility="collapsed"),
-            "Public bank holidays per year. England & Wales has 8 statutory days plus 3 additional common holidays.")
+            "Unpaid bank holidays per year.")
         l_weeks_off = (l_leave_days + l_bank_holidays) / l_days_per_week if l_days_per_week > 0 else 0
         l_weeks_per_year = round(52 - l_weeks_off, 1)
         ca_wp, cb_wp, cc_wp = st.columns([2, 1, 3])
@@ -404,10 +404,10 @@ with tab_umbrella:
             "Used to calculate hourly equivalent rate only")
         u_leave_days = ua_row("Annual leave days",
             lambda: st.number_input("", value=19, step=1, key="u_leave", label_visibility="collapsed"),
-            "Paid holiday days per year, excluding bank holidays. Holiday pay under umbrella does not add income — it is built into the assignment rate and redistributed by the umbrella.")
+            "Unpaid holidays per year, excluding bank holidays. Holiday pay under umbrella does not add income — it is built into the assignment rate and redistributed by the umbrella.")
         u_bank_holidays = ua_row("Bank holidays",
             lambda: st.number_input("", value=11, step=1, key="u_bh", label_visibility="collapsed"),
-            "Public bank holidays per year. England & Wales has 8 statutory days plus 3 additional common holidays.")
+            "Unpaid bank holidays per year.")
         u_weeks_off = (u_leave_days + u_bank_holidays) / u_days_per_week if u_days_per_week > 0 else 0
         u_weeks_per_year = round(52 - u_weeks_off, 1)
         ca_wp, cb_wp, cc_wp = st.columns([2, 1, 3])
@@ -777,17 +777,6 @@ with tab_salaried:
         sbd_row("= Net take-home (annual)", sr.annual_net,
             "Gross taxable pay minus all taxes and deductions", is_total=True)
 
-        st.markdown("")
-
-        sbd_header("Pension memo")
-        sbd_row("Your pension contribution", sr.employee_pension_contribution,
-            f"{sa.employee_pension_rate:.1%} of qualifying earnings")
-        sbd_row("HMRC basic rate top-up", sr.hmrc_basic_rate_topup,
-            "Relief at source only — 20% added by HMRC to pension pot")
-        sbd_row("Employer NI saving to pension", sr.employer_ni_saving_to_pension,
-            "Salary sacrifice only — employer passes NI saving to pension")
-        sbd_row("Total pension pot funded", sr.total_pension_pot,
-            "Your contribution + any top-ups", is_total=True)
 
     st.markdown("---")
     st.subheader("Tax & Deductions Summary")
@@ -797,6 +786,23 @@ with tab_salaried:
     s3.metric("Your pension", mfmt(sr.employee_pension_contribution))
     s4.metric("Employer pension", mfmt(sr.employer_pension_contribution))
     s5.metric("Employer NI", mfmt(sr.employer_ni))
+
+    with st.expander("Pension memo"):
+        def pmbd_row(label, value, note="", is_total=False):
+            ca, cb, cc = st.columns([3, 1, 3])
+            style = "font-weight: bold;" if is_total else ""
+            note_style = "color: #888888; font-size: 0.85em;"
+            ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
+            cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
+            cc.markdown(f"<span style='{note_style}'>{note}</span>", unsafe_allow_html=True)
+        pmbd_row("Your pension contribution", sr.employee_pension_contribution,
+            f"{sa.employee_pension_rate:.1%} of qualifying earnings")
+        pmbd_row("HMRC basic rate top-up", sr.hmrc_basic_rate_topup,
+            "Relief at source only — 20% added by HMRC to pension pot")
+        pmbd_row("Employer NI saving to pension", sr.employer_ni_saving_to_pension,
+            "Salary sacrifice only — employer passes NI saving to pension")
+        pmbd_row("Total pension pot funded", sr.total_pension_pot,
+            "Your contribution + any top-ups", is_total=True)
 
     with st.expander("Cost to Employer"):
         for label, value in [
