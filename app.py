@@ -403,13 +403,6 @@ with tab_umbrella:
     else:  # Per Year
         u_day_rate = u_rate_input / (u_weeks_per_year * u_days_per_week)
 
-    # Holiday pay calculation
-    u_holiday_pay_annual = 0.0
-    if u_holiday_model == "Rolled-up (included in rate)":
-        u_holiday_pay_annual = (u_day_rate * u_days_per_week * u_weeks_per_year) * u_holiday_rate
-    else:
-        u_holiday_pay_annual = (u_day_rate * u_days_per_week * u_weeks_per_year) * u_holiday_rate
-
     ua = UmbrellaAssumptions(
         days_per_week=u_days_per_week,
         weeks_per_year=u_weeks_per_year,
