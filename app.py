@@ -325,27 +325,6 @@ with tab_ltd:
             "Salary + dividends minus all personal tax", is_total=True)
 
     st.markdown("---")
-    st.subheader("Tax & Deductions Summary")
-    s1, s2, s3, s4, s5 = st.columns(5)
-    s1.metric("Corporation tax", mfmt(lr.corporation_tax_paid))
-    s2.metric("Dividend tax", mfmt(lr.dividend_tax_paid))
-    s3.metric("Employer NI", mfmt(lr.employer_ni_paid))
-    s4.metric("Pension (company)", mfmt(lr.total_pension))
-    s5.metric("Critical illness (after-tax cost)", mfmt(lr.critical_illness_after_tax_cost))
-
-    with st.expander("Contractor Protection & Context"):
-        for label, value in [
-            ("Critical illness / IP insurance (gross)", lr.critical_illness_annual),
-            ("After-tax cost to company", lr.critical_illness_after_tax_cost),
-            ("Gross contract income", lr.annual_gross_contract_income),
-            ("Total pension (employer contribution)", lr.total_pension),
-        ]:
-            ca, cb = st.columns([3, 1])
-            bold = "font-weight: bold;" if "Total" in label or "Gross contract" in label else ""
-            ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
-            cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
-
-    st.markdown("---")
     st.caption("Figures are indicative only. Tax rates based on published HMRC rates. Not financial advice.")
 
 
@@ -573,33 +552,6 @@ with tab_umbrella:
             "Gross taxable pay minus all taxes and deductions", is_total=True)
 
     st.markdown("---")
-    st.subheader("Tax & Deductions Summary")
-    s1, s2, s3, s4, s5 = st.columns(5)
-    s1.metric("Income tax", mfmt(ur.income_tax_paid))
-    s2.metric("Employee NI", mfmt(ur.employee_ni_paid))
-    s3.metric("Umbrella margin", mfmt(ur.umbrella_margin_paid))
-    s4.metric("Your pension", mfmt(ur.employee_pension_contribution))
-    s5.metric("Employer pension", mfmt(ur.employer_pension_contribution))
-
-    with st.expander("Cost to Client"):
-        for label, value in [
-            ("Gross assignment rate (total cost to client)", ur.annual_gross_contract_income),
-            ("  Of which: umbrella margin", ur.umbrella_margin_annual),
-            ("  Of which: employer pension", ur.employer_pension_annual),
-            ("  Of which: employer NI", ur.employer_ni),
-            ("  Of which: apprenticeship levy", ur.apprenticeship_levy),
-            ("  Of which: your gross PAYE salary", ur.gross_paye_salary),
-            ("Your gross PAYE salary as % of assignment rate", None),
-        ]:
-            ca, cb = st.columns([3, 1])
-            bold = "font-weight: bold;" if "assignment rate" in label.lower() or "total" in label.lower() else ""
-            ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
-            if value is not None:
-                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
-            else:
-                cb.markdown(f"<span style='{bold}'>{ur.gross_salary_pct_of_client_cost:.1%}</span>", unsafe_allow_html=True)
-
-    st.markdown("---")
     st.caption("Figures are indicative only. Tax rates based on published HMRC rates. Not financial advice.")
 
 
@@ -777,49 +729,6 @@ with tab_salaried:
         sbd_row("= Net take-home (annual)", sr.annual_net,
             "Gross taxable pay minus all taxes and deductions", is_total=True)
 
-
-    st.markdown("---")
-    st.subheader("Tax & Deductions Summary")
-    s1, s2, s3, s4, s5 = st.columns(5)
-    s1.metric("Income tax", mfmt(sr.income_tax_paid))
-    s2.metric("Employee NI", mfmt(sr.employee_ni_paid))
-    s3.metric("Your pension", mfmt(sr.employee_pension_contribution))
-    s4.metric("Employer pension", mfmt(sr.employer_pension_contribution))
-    s5.metric("Employer NI", mfmt(sr.employer_ni))
-
-    with st.expander("Pension memo"):
-        def pmbd_row(label, value, note="", is_total=False):
-            ca, cb, cc = st.columns([3, 1, 3])
-            style = "font-weight: bold;" if is_total else ""
-            note_style = "color: #888888; font-size: 0.85em;"
-            ca.markdown(f"<span style='{style}'>{label}</span>", unsafe_allow_html=True)
-            cb.markdown(f"<span style='{style}'>{fmt(value)}</span>", unsafe_allow_html=True)
-            cc.markdown(f"<span style='{note_style}'>{note}</span>", unsafe_allow_html=True)
-        pmbd_row("Your pension contribution", sr.employee_pension_contribution,
-            f"{sa.employee_pension_rate:.1%} of qualifying earnings")
-        pmbd_row("HMRC basic rate top-up", sr.hmrc_basic_rate_topup,
-            "Relief at source only — 20% added by HMRC to pension pot")
-        pmbd_row("Employer NI saving to pension", sr.employer_ni_saving_to_pension,
-            "Salary sacrifice only — employer passes NI saving to pension")
-        pmbd_row("Total pension pot funded", sr.total_pension_pot,
-            "Your contribution + any top-ups", is_total=True)
-
-    with st.expander("Cost to Employer"):
-        for label, value in [
-            ("Gross salary", s_salary),
-            ("  Employer NI", sr.employer_ni),
-            ("  Employer pension contribution", sr.employer_pension),
-            ("  Employer sick pay liability", sr.employer_sick_pay_liability),
-            ("Total cost to employer", sr.total_cost_to_employer),
-            ("Breakeven contractor day rate", sr.breakeven_day_rate),
-        ]:
-            ca, cb = st.columns([3, 1])
-            bold = "font-weight: bold;" if "Total" in label or "Breakeven" in label or label == "Gross salary" else ""
-            ca.markdown(f"<span style='{bold}'>{plabel(label)}</span>", unsafe_allow_html=True)
-            if "day rate" in label.lower():
-                cb.markdown(f"<span style='{bold}'>£{value:,.2f}/day</span>", unsafe_allow_html=True)
-            else:
-                cb.markdown(f"<span style='{bold}'>{fmt(value)}</span>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.caption("Figures are indicative only. Tax rates based on published HMRC rates. Not financial advice.")
