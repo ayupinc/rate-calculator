@@ -14,7 +14,7 @@ class SalariedAssumptions:
     weeks_per_year: float = 46
     hours_per_day: float = 7.5
 
-    # PAYE tax bands (2024/25)
+    # PAYE tax bands (2026/27)
     personal_allowance: float = 12_570
     basic_rate_ceiling: float = 50_270
     higher_rate_ceiling: float = 125_140
@@ -22,15 +22,15 @@ class SalariedAssumptions:
     income_tax_higher: float = 0.40
     income_tax_additional: float = 0.45
 
-    # Employee NI (2024/25)
+    # Employee NI (2026/27)
     ni_primary_threshold: float = 12_570
     ni_rate_standard: float = 0.08
     ni_upper_earnings_limit: float = 50_270
     ni_rate_above_uel: float = 0.02
 
-    # Employer NI (2024/25)
-    employer_ni_secondary_threshold: float = 9_100
-    employer_ni_rate: float = 0.138
+    # Employer NI (2026/27)
+    employer_ni_secondary_threshold: float = 5_000
+    employer_ni_rate: float = 0.15
 
     # Pension
     pension_scheme_type: str = "Relief at source"  # or "Net pay arrangement" or "Salary sacrifice"
